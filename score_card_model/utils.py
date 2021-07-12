@@ -501,6 +501,7 @@ def init_split(df, featname, init_bins=100):
     list_median_vals = []
     for i in range(len(list_unique_vals_order) - 1):
         list_median_vals.append((list_unique_vals_order[i] + list_unique_vals_order[i + 1]) / 2)
+
     # 初始化初始分箱的个数,
     cnt_unique_vals = len(list_median_vals)
     # 如果初始分箱个数小于init_bins了, 则直接返回
@@ -534,6 +535,7 @@ def feat_bins_split(df, featname, init_bins=100):
     """
     dict_vals_to_bins = {}
     # 先取出分割的刻度
+    print(featname)
     list_unique_vals_order = init_split(df, featname=featname, init_bins=init_bins)
     # 计算刻度的个数, 最终箱子数为刻度数 + 1
     cnt_unique_vals = len(list_unique_vals_order)
@@ -773,7 +775,6 @@ def chi2_cutting_discrete(df_data, feat_list, target,
         # 参数初始化
         intervals = max_intervals
         # 初始化dataframe
-        # df = df.loc[:, [feat, target]]
         df = df_data.loc[:, [feat, target]]
 
         # 初始化regroup_ori, 以badrate进行升序排序
@@ -950,3 +951,252 @@ def chi2_cutting_discrete(df_data, feat_list, target,
         dict_discrete_woe[feat] = dict_woe
 
     return dict_discrete_feat_to_bins, dict_discrete_iv, dict_discrete_woe
+
+
+def chi2_cutting_continuous(df_data, feat_list, target,
+                            discrete_more_feats=[],
+                            special_feat_val={},
+                            max_intervals=5, min_pnt=0.05,
+                            mono_expect={}):
+    """
+    连续性特征分箱
+    其中无序离散多型的特征会做badrate编码,以badrate作为连续值进行处理
+    连续值均有序
+
+    Parameters:
+    ----------
+    df_train: dataframe, 训练集,
+    feat_list: list, 参与分箱的特征, 其中feat_list需要包含discrete_more_feats
+    target: str, y值特征名称
+    discrete_more_feats: 大于阈值分箱数的特征名称列表[特证名1, 特征名2......]
+    special_feat_val: dict, 某个特征下不参与分箱的特殊值,具体格式如下:
+    {特征名1: [特殊值1...特殊值r], 特征名2: [特殊值1...特殊值o, ......], 特征名k: [特殊值1...特殊值n]}
+    PS:实际运用场景中, 这里只会有-1一个特殊值
+
+    max_intervals: 非0整数,最大分箱数, 默认5
+    min_pnt: 最小分箱数目占比, 默认0.05, 取(0,1)之间
+    discrete_order: dict, 表示离散有序特征, 具体格式如下:
+    如{特征名1:{特征值1:序值1,...,特征值n:序值n} ,..., 特征名k:{特征值1:序值1,...,特征值n:序值n}};
+    注意这个地方, 有序特征的有序性在这个特征中体现,函数中会根据这个更新分组序值
+    mono_except: dict, 默认空表变量离散无序，无需检查单调性；非空dict表离散有序，需要检查badrate单调性,参数赋值
+    形如{ 特征名1:{'shape':期望单调性,'u':不单调时，是否允许U形} ,..., 特征名k:{'shape':期望单调性,'u':不单调时，是否允许U形}}，
+        'shape'可选择参数：'mono'期望单调增或减，'mono_up'期望单调增，'mono_down'期望单调减；
+        'u'可选参数：'u'正U（开口向上）或倒U（开口向下），'u_up'正U，'u_down'倒U, False 不允许U型
+
+    Returns:
+    -------
+    dict_contin_feat_to_bins:
+    无序离散多型特征的分组取值, 形式为{featname:{val1: 序值1, val2: 序值2} }
+    连续型特征的分组取值, 形式为{featname: { (-1, val1]: 序值1, (val1, val2]: 序值2} }
+
+    dict_contin_iv: woe编码后的IV; 形式为:{featname: iv值}
+    dict_contin_woe: 分组后的woe值; {featname: {0: woe值, 1: woe值, ......, k: woe值} }
+
+    """
+    # 先判断参数是否正确
+    # 判断df_train是否为空, 是否为正确的类型, 是否为0行
+    if df_data is None:
+        raise Exception('None dataframe is inputed.')
+    elif not isinstance(df_data, pd.DataFrame):
+        raise Exception('Input is not a dataframe.')
+    elif df_data.shape[0] == 0:
+        raise Exception('The dataframe has a row num of 0.')
+    # 判断分箱特征列表是否为空
+    elif (len(feat_list) == 0) or (feat_list is None):
+        raise Exception('Empty list is inputed.')
+    # 判断最大分箱数max_intervals是否为正整数
+    elif (max_intervals < 0) or not isinstance(max_intervals, int):
+        raise Exception('Max_intervals is incorrect.')
+    # 判断最小分箱数占比min_pnt是否为(0,1)
+    elif (min_pnt <= 0) or (min_pnt >= 1):
+        raise Exception('Min_pnt is incorrect.')
+
+    # 判断特殊值是否真实存在
+    if len(special_feat_val) > 0:
+        for featName, valsList in special_feat_val.items():
+            list_feat_vals = list(set(df_data[featName]))
+            for val in valsList:
+                if val not in list_feat_vals:
+                    raise Exception("'{0}' does not exist in feature '{1}'.".format(val, featName))
+
+    # 计算dataframe的行数
+    row_num = df_data.shape[0]
+
+    dict_contin_feat_to_bins = {}
+    dict_contin_iv = {}
+    dict_contin_woe = {}
+
+    # 开始处理
+    for feat in feat_list:
+        # 参数初始化, 和离散型不同, 这里不需要feat_valToBins
+        intervals = max_intervals
+        df = df_data.loc[:, [feat, target]]
+
+        # 处理顺序是df_transf, df_special, df_bins, df_init, df_merge, df_badrate, df_min_pnt, df_mono
+        # 如果特征类型属于无序离散多, 则需要先进行badrate编码,转化为连续值后再进行处理
+        # 如果特征类型本身就是连续值, 不需要转化处理
+        if feat in discrete_more_feats:
+            regroup_tf = bin_badrate(df, col_name=feat, target=target)
+            dict_feat_to_badrate = regroup_tf['bad_rate'].to_dict()
+            df[feat + '_transf'] = df[feat].map(dict_feat_to_badrate)
+
+        else:
+            df[feat + '_transf'] = df[feat]
+
+        # 先做特殊值处理, 在连续型特征里一般以-1作为特殊值单独一组
+        if len(special_feat_val) > 0 and feat in special_feat_val.keys():
+            intervals -= len(special_feat_val[feat])
+            # 复制一份特殊值的df
+            df_special = df.loc[df[feat].isin(special_feat_val[feat])]
+            # 同时也创建feat + '_bins'列
+            df_special[feat + '_bins'] = df_special[feat + '_transf']
+            # 更新df(剔除特殊值)
+            df = df.loc[~df[feat].isin(special_feat_val[feat])]
+
+        # 基于transf后的数据生成分组字典, 再初始化df_bins
+        dict_vals_to_bins = feat_bins_split(df, featname=feat + '_transf', init_bins=100)
+        df[feat + '_bins'] = df[feat + '_transf'].apply(lambda x: value_to_intervals(value=x,
+                                                                                     dict_valstoinv=dict_vals_to_bins))
+        # 初始化df_init
+        df[feat + '_init'] = df[feat + '_bins'].map(dict_vals_to_bins)
+
+        # 初始化df_merge, regroup_merge
+        df[feat + '_merge'] = df[feat + '_init']
+        regroup_merge = bin_badrate(df, col_name=feat + '_bins', target=target)
+
+        # 对排序的的连续特征进行最小卡方值合并策略(直接参考离散型)
+        # 特征是连续型,所以肯定是有序的
+        while regroup_merge.shape[0] > intervals:
+            # 先找到需要合并的最小卡方值索引序列号id_merge
+            # 注意返回的regroup_init是排序过的
+            regroup_merge, id_merge = order_regroup(regroup_merge, feat_order=True)
+            # 进行组合并, 同时更新取值字典
+            dict_vals_to_bins = merge_neighbour(regroup_merge, id_merge, dict_vals_to_bins)
+            # 更新feat_init列
+            df[feat + '_merge'] = df[feat + '_bins'].map(dict_vals_to_bins)
+            # 计算合并后的bad_rate
+            regroup_merge = bin_badrate(df, col_name=feat + '_merge', target=target)
+
+        # 初始化df_badrate, regroup_badrate
+        df[feat + '_badrate'] = df[feat + '_merge']
+        regroup_badrate = bin_badrate(df, col_name=feat + '_badrate', target=target)
+
+        # 开始检查badrate为0或者1的情况:
+        while regroup_badrate['bad_rate'].max() == 1 or regroup_badrate['bad_rate'].min() == 0:
+            # 遍历寻找需要合并的分组id
+            regroup_badrate, id_badrate_0, id_badrate_1 = order_regroup(regroup_badrate,
+                                                                        feat_order=True,
+                                                                        check_object='bad_rate')
+            if regroup_badrate['bad_rate'].max() == 1:
+                id_merge_badrate = id_badrate_1
+            else:
+                id_merge_badrate = id_badrate_0
+
+            # 基于卡方进行合并, 更新取值字典
+            dict_vals_to_bins = merge_neighbour(regroup_badrate,
+                                              id_target=id_merge_badrate,
+                                              feat_vals_dict=dict_vals_to_bins)
+            # 重新更新df和regroup_badrate
+            df[feat + '_badrate'] = df[feat + '_bins'].map(dict_vals_to_bins)
+            regroup_badrate = bin_badrate(df, col_name=feat + '_badrate', target=target)
+
+        # 初始化df_min_pnt, regroup_min_pnt, pnt_feat_vals
+        df[feat + '_min_pnt'] = df[feat + '_badrate']
+        regroup_min_pnt = bin_badrate(df, col_name=feat + '_min_pnt', target=target)
+        regroup_min_pnt['pnt_feat_vals'] = regroup_min_pnt['num_feat_vals'] / row_num
+
+        # 开始检查分组样本数占比是否低于阈值(默认5%)
+        while regroup_min_pnt['pnt_feat_vals'].min() < min_pnt:
+            # 和无序离散少&有序离散有一点区别, 连续型的值可能会存在最终合并为1组的情况,所以要做个判断
+            # 如果合并至仅剩余两组,则直接跳出
+            if regroup_min_pnt.shape[0] == 2:
+                break
+            # 遍历找到需要合并的分组
+            regroup_min_pnt, id_merge_pnt = order_regroup(regroup_min_pnt,
+                                                          feat_order=True,
+                                                          check_object='min_pnt')
+            # 开始进行合并, 更新分组取值
+            dict_vals_to_bins = merge_neighbour(regroup_min_pnt,
+                                              id_target=id_merge_pnt,
+                                              feat_vals_dict=dict_vals_to_bins)
+            # 对df进行更新
+            df[feat + '_min_pnt'] = df[feat + '_bins'].map(dict_vals_to_bins)
+            # 更新regroup_min_pnt
+            regroup_min_pnt = bin_badrate(df, col_name=feat + '_min_pnt', target=target)
+            # 重新计算pnt_feat_vals
+            regroup_min_pnt['pnt_feat_vals'] = regroup_min_pnt['num_feat_vals'] / row_num
+
+        # 开始检查单调性
+        # 先进行初始化df & regroup, 以feat + '_mono'统计最新分组,
+        df[feat + '_mono'] = df[feat + '_min_pnt']
+        regroup_mono = bin_badrate(df, col_name=feat + '_mono', target=target)
+
+        # 对特定的特征检查单调性
+        if feat in mono_expect.keys():
+            # 检查feat是否单调
+            is_mono = monotone_badrate(regroup_mono,
+                                       shape=mono_expect[feat]['shape'],
+                                       u=mono_expect[feat]['u'])
+            while not is_mono:
+                # 更新regroup_mono以及遍历需要更新的分组序值id
+                regroup_mono, id_merge_mono = order_regroup(regroup_mono, feat_order=True)
+                # 更新feat_valToBins
+                dict_vals_to_bins = merge_neighbour(regroup_mono,
+                                                  id_target=id_merge_mono,
+                                                  feat_vals_dict=dict_vals_to_bins)
+                # 更新df, feat + '_mono'
+                df[feat + '_mono'] = df[feat + '_bins'].map(dict_vals_to_bins)
+                # 更新regroup_mono
+                regroup_mono = bin_badrate(df, col_name=feat + '_mono', target=target)
+                # 再次检查单调性, 更新is_mono
+                is_mono = monotone_badrate(regroup_mono,
+                                           shape=mono_expect[feat]['shape'],
+                                           u=mono_expect[feat]['u'])
+
+        # 初始化特殊值的regroup_woe_iv
+        regroup_woe_iv = regroup_mono.copy()
+        # 对特殊值进行处理
+        if feat in special_feat_val.keys() and len(special_feat_val[feat]) > 0:
+            # 先更新取值字典,对特殊值进行赋值组序
+            # 取值字典加回特殊值, 注意组序为组序0开始计, 之前的组序全部+1
+            for sp_val in special_feat_val[feat]:
+                for k, v in dict_vals_to_bins.items():
+                    dict_vals_to_bins[k] = v + 1
+                dict_vals_to_bins[sp_val] = 0
+            # 先基于df创建regroup_nor
+            df[feat + '_nor'] = df[feat + '_bins'].map(dict_vals_to_bins)
+            regroup_nor = bin_badrate(df, col_name=feat + '_nor', target=target)
+            # 再基于df_spcial创建regroup_sp
+            df_special[feat + '_sp'] = df_special[feat + '_bins'].map(dict_vals_to_bins)
+            regroup_sp = bin_badrate(df_special, col_name=feat + '_sp', target=target)
+            # 合并,更新regroup_woe_iv
+            regroup_woe_iv = regroup_special_merge(regroup_nor, regroup_sp)
+
+        # 计算分组的woe和iv
+        # 注意这里用的参数是regroup_woe_iv
+        # 这个时候只有num_feat_vals、num_feat_bad、bad_rate三个字段
+        regroup_woe_iv, dict_woe, iv = cal_woe_iv(regroup_woe_iv)
+
+        # 插入最终的分组取值, dict_contin_feat_to_bins
+        # 对于取值分组,需要分成两种
+        # 如果特征属于连续值,则直接合并区间, 然后直接进行插入
+        # 如果特征属于类别型(离散无序多), 则需要抓取的是特征取值:分组值
+        if feat in discrete_more_feats:
+            dict_vals_to_bins = merge_intervals(dict_vals_to_bins)
+            regroup_tf[feat + '_interval'] = regroup_tf['bad_rate'].apply(lambda x: value_to_intervals(x,
+                                                                                                       dict_vals_to_bins))
+            regroup_tf[feat + '_groupno'] = regroup_tf[feat + '_interval'].map(dict_vals_to_bins)
+            # 重新刷新&排序dict_valsToBins
+            dict_vals_to_bins = regroup_tf[feat + '_groupno'].to_dict()
+            dict_vals_to_bins = {k: v for k, v in sorted(dict_vals_to_bins.items(),
+                                                       key=lambda x: x[1])}
+            dict_contin_feat_to_bins[feat] = dict_vals_to_bins
+        else:
+            dict_vals_to_bins = merge_intervals(dict_vals_to_bins)
+            dict_contin_feat_to_bins[feat] = dict_vals_to_bins
+
+        # 插入iv 和 woe
+        dict_contin_iv[feat] = iv
+        dict_contin_woe[feat] = dict_woe
+
+    return dict_contin_feat_to_bins, dict_contin_iv, dict_contin_woe
