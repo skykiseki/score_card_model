@@ -209,3 +209,31 @@ def order_regroup(regroup, feat_order=False, check_object='chi2sum_min'):
 
     else:
         print("Incorrect 'check_object' para is inputted.")
+
+
+def refresh_vals_dict(dict_vals_ori, dict_vals_proc):
+    """
+    根据 dict规则对原始的取值dict进行更新
+
+    Parameters:
+    ----------
+    dict_valsOri: 原始的取值字典,其中前者的值是后者的键
+    dict_valsProc: 规则取值字典
+
+    Returns:
+    -------
+    dict_res: 结果返回更新之后的字典
+
+    E.g:
+    ---
+    如dict_valsOri = {'OWN':'0', 'NONE':'1'}, dict_valsProc = {'0':0, '1':0}
+    返回的是{'OWN':0, 'NONE':0}
+
+    """
+    dict_res = {}
+    for key, value in dict_vals_ori.items():
+        if value in dict_vals_proc.keys():
+            dict_res[key] = dict_vals_proc[value]
+        else:
+            dict_res[key] = dict_vals_ori[key]
+    return dict_res
