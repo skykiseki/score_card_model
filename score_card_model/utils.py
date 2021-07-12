@@ -237,3 +237,139 @@ def refresh_vals_dict(dict_vals_ori, dict_vals_proc):
         else:
             dict_res[key] = dict_vals_ori[key]
     return dict_res
+
+
+
+def merge_neighbour(regroup, id_target, feat_vals_dict):
+    """
+    合并分箱
+
+    Parameters:
+    ----------
+    regroup, 输入的排序后的bad_rate结果,即order_regroup的返回值
+    id_target, 所找到的最小卡方值箱子索引值, 这里的target_id为大于0,小于特征取值个数,即[1, num_vals - 1]
+    feat_vals_dict, dict,原始的箱子取值遍历
+
+
+    Returns:
+    -------
+    返回刷新组序列之后的取值dict
+    """
+
+
+    # 先初始化索引值,方便取值,也方便后续更新refresh_val_2bin以确保一一对应, 这里可以理解为GroupNO
+    rg = regroup.reset_index()
+    # 取得对应字典, 注意, 这里的key和value需要翻转, 用于refresh便捷
+    reindex_dict = {v: k for k, v in rg[rg.columns[0]].to_dict().items()}
+    # 将GroupNo更新进feat_vals_dict
+    feat_vals_dict = refresh_vals_dict(feat_vals_dict, reindex_dict)
+    # 取得所有的序值
+    list_idxid = list(rg.index)
+    # 取得序值的个数
+    num_idxid = len(list_idxid)
+
+    # 初始化合并dict, 包含的值为合并前的序值:合并后的序值,如{0:0, 1:0, 2:1},后面再利用这个dict_merge进行refresh
+    dict_merge = {i: i for i in list_idxid}
+    # 若遍历搜索到的所需合并的id为1(注意id返回的是合并组(k, k+1)中的k+1值), 则0组和1组合并, 合并进去0组(合并的箱子序值为k)
+    # 其他组不变, 但是由于0,1合并,序值推前1, 所以其他组的序值需要减1
+    # 若遍历搜索到的所需合并的id为最后一组, 即num_idxid - 1, 则合并(num_idxid - 2, num_idxid - 1), 合并进num_idxid - 2
+    # 其他组不变, 由于是最后两组合并, 所以前面组的序值不变
+    # 若遍历搜索到的所需合并的id在以上两种情况之外(即在中间), 则小于k值的均不变, 大于等于k值的前置1位,即减1
+    for k, v in dict_merge.items():
+        if id_target == 1:
+            if k == 0:
+                # 等价于dict_merge[0] = 0
+                dict_merge[k] = v
+            else:
+                dict_merge[k] = v - 1
+        elif id_target == num_idxid - 1:
+            if k == num_idxid - 1:
+                dict_merge[k] = v - 1
+            else:
+                dict_merge[k] = v
+        else:
+            if k < id_target:
+                dict_merge[k] = v
+            else:
+                dict_merge[k] = v - 1
+    # 返回刷新组序列之后的取值dict
+    return refresh_vals_dict(feat_vals_dict, dict_merge)
+
+
+def monotone_badrate(regroup, shape='mono', u=False):
+    """
+    判断组间坏样本率期望单调性（不严格，允许相邻组badrate相等）与实际单调性是否相符;不符时是否放宽至U形（严格，不允许相邻组badrate相等）
+
+    U形时，极值索引不一定是索引中位数，可能存在偏移；符合期望单调或U型，则返回True，否则返回False
+
+    Parameters:
+    ----------
+    regroup: badrate的返回值
+    shape: 单调类型; 'mono' 单调增或者减, 'mono_up' 单调递增, 'mono_down' 单调递减
+    u: 是否允许U型分布, 参数为False, 'u' 正U或者倒U, 'u_up' 正U, 'u_down' 倒u
+
+    PS:注意输入的必须是有序的特征
+
+    """
+    # 以防万一, 做个预备的参数检查
+    if shape not in ['mono', 'mono_up', 'mono_down'] or u not in [False, 'u', 'u_up', 'u_down']:
+        raise Exception('错误的参数类型, 请重新检查.')
+
+    # 先对regroup进行初始化排序, 基于索引排序
+    rg = regroup.sort_index(ascending=True)
+    # 取出对应的bad_rate
+    list_badrate = list(rg['bad_rate'])
+    # 取出对应的分组个数
+    cnt_bins = len(list_badrate)
+
+    # 先判断cnt_bins的个数,如果分组个数只有1个或者空,无所谓的单调不单调, 不做后续处理, 直接给默认True
+    if cnt_bins <= 1:
+        return True
+    # 先检查是否满足严格的单调增或者单调减, 注意因为是相邻组的比较, 所以最大索引值要减1
+    # 这个地方不能取等号, 原本的代码是有等号, 但是我们这里为了有区分度, 所以不能有等号
+    is_mono_up = all([list_badrate[i] < list_badrate[i + 1] for i in range(cnt_bins - 1)])
+    is_mono_down = all([list_badrate[i] > list_badrate[i + 1] for i in range(cnt_bins - 1)])
+    # 根据期望的类型进行返回结果
+    if shape == 'mono_up':
+        ret_is_mono = is_mono_up
+    elif shape == 'mono_down':
+        ret_is_mono = is_mono_down
+    else:
+        ret_is_mono = any([is_mono_up, is_mono_down])
+
+    # 如果以上的单调性结果为False,而期望的单调型还允许是U型, 则需再次检查
+    if u is not False and ret_is_mono is False:
+        # 先判断是否存在一定的等值, 如果存在, 则不是U型, 直接返回
+        is_exist_equality = any([list_badrate[i] == list_badrate[i + 1] for i in range(cnt_bins - 1)])
+        if is_exist_equality:
+            return ret_is_mono
+
+        # 先初始化bad_rate最小和最大值得组序
+        id_min_bad_rate = list_badrate.index(min(list_badrate))
+        id_max_bad_rate = list_badrate.index(max(list_badrate))
+
+        # 判断是否为倒U型,极大值的索引序值不在头和尾, 且最大值(序值)左边单调增, 最大值(序值)右边单调减
+        if id_max_bad_rate != 0 and id_max_bad_rate != cnt_bins - 1:
+            is_left_up = all([list_badrate[i] < list_badrate[i + 1] for i in range(id_max_bad_rate)])
+            is_right_down = all([list_badrate[i] > list_badrate[i + 1] for i in range(id_max_bad_rate, cnt_bins - 1)])
+            is_u_down = all([is_left_up, is_right_down])
+        else:
+            is_u_down = False
+
+        # 判断是否为正U型, 极小值的索引序值不在头和尾, 切最大值(序值)左边单调减, 最大值(序值)右边单调增
+        if id_min_bad_rate != 0 and id_min_bad_rate != cnt_bins - 1:
+            is_left_down = all([list_badrate[i] > list_badrate[i + 1] for i in range(id_min_bad_rate)])
+            is_right_up = all([list_badrate[i] < list_badrate[i + 1] for i in range(id_min_bad_rate, cnt_bins - 1)])
+            is_u_up = all([is_left_down, is_right_up])
+        else:
+            is_u_up = False
+
+        # 更新返回结果
+        if u == 'u_up':
+            ret_is_mono = is_u_up
+        elif u == 'u_down':
+            ret_is_mono = is_u_down
+        else:
+            ret_is_mono = any([is_u_down, is_u_up])
+
+    return ret_is_mono
