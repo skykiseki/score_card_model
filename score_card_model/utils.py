@@ -592,3 +592,52 @@ def intervals_split_merge(list_lab_intervals):
         r_label = ']'
     label_merge = l_label + lab_min_interval + ',' + lab_max_interval + r_label
     return label_merge
+
+
+def merge_intervals(dict_vals_to_bins):
+    """
+    对合并的连续值区间进行
+
+    e.g.
+    如{'(-1, 2]': 0, '(2, 5]': 1, '(5, 7]': 1, '(7, +Inf)': 2}
+    返回{'(-1, 2]': 0, '(2, 7]': 1, '(7, +Inf)': 2}
+
+    Parameters:
+    ----------
+    dict_vals_to_bins: dict, 输入的分组取值
+
+    Returns:
+    -------
+    res_dict_vals_to_bins, 合并后的分组取值
+    """
+
+    # 拷贝
+    dup_dict_vals_to_bins = dict_vals_to_bins.copy()
+    # 返回结果
+    res_dict_vals_to_bins = {}
+    # 特殊值字典
+    sp_dict_vals_to_bins = {}
+
+    # 先保存特殊值, 并且从初始的字典中删除特殊值
+    for key, val in dict_vals_to_bins.items():
+        if not isinstance(key, str):
+            sp_dict_vals_to_bins[key] = val
+            del dup_dict_vals_to_bins[key]
+
+    # 计算初始的字典元素序值与字典元素key
+    list_keys = list(dup_dict_vals_to_bins.keys())
+    list_values = list(dup_dict_vals_to_bins.values())
+    # 对索引序值进行分组合并
+    for id_val in sorted(set(list_values)):
+        list_lab_intervals = []
+        for i in range(len(list_values)):
+            # 如果组序(去重)和列表值(重复)相等, 则取出对应列表序值对应的分组
+            if id_val == list_values[i]:
+                list_lab_intervals.append(list_keys[i])
+        label_interval = intervals_split_merge(list_lab_intervals)
+        res_dict_vals_to_bins[label_interval] = id_val
+    # 合并特殊值
+    res_dict_vals_to_bins.update(sp_dict_vals_to_bins)
+    # 做个排序
+    res_dict_vals_to_bins = {k: v for k,v in sorted(res_dict_vals_to_bins.items(), key=lambda x: x[1])}
+    return res_dict_vals_to_bins
