@@ -3,7 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
-import feat_bincutting_func as fbf
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.metrics import roc_curve
 from sklearn.metrics import roc_auc_score
@@ -31,6 +30,7 @@ class ScoreCardModel(object):
     cols_cont: list, 连续型特征
 
     max_intervals: int, 最大分箱数
+    min_pct: float, 特征单属性样本最小占比
 
     pipe_options: list, 分别有:
     'Check_None': 检查空值
@@ -47,7 +47,8 @@ class ScoreCardModel(object):
                  target,
                  const_cols_ratio,
                  cols_disc_ord=[],
-                 max_intervals=5):
+                 max_intervals=5,
+                 min_pct=0.05):
         self.df = df
         self.df_res = None
 
@@ -63,6 +64,7 @@ class ScoreCardModel(object):
         self.cols_cont = []
 
         self.max_intervals = max_intervals
+        self.min_pct = min_pct
 
         self.pipe_options = ['Check_None', 'Check_Const_Cols']
         self.pinelines = []
