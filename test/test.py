@@ -6,6 +6,7 @@ if __name__ == '__main__':
 
     scm_obj = ScoreCardModel(df_data)
 
+    print(scm_obj.add_pinepine('Constant_Columns'))
     print(scm_obj.model_pineline_proc())
     print(scm_obj.pinelines)
 
