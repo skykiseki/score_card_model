@@ -22,8 +22,8 @@ class ScoreCardModel(object):
     'check_null': 检查空值
 
     """
-    def __init__(self):
-        self.df = None
+    def __init__(self, df):
+        self.df = df
         self.df_res = None
         self.pinelines_list = []
 
