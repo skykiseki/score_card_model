@@ -56,12 +56,11 @@ class ScoreCardModel(object):
         -------
         bool, 是否含有空值元素
         """
-        print('Checking if exists None value...')
         if self.df.isnull().sum().sum() > 0:
-            print('None value exists.Please fix your data.')
+            print('Checking None values: None value exists.Please fix your data.')
             raise TypeError
         else:
-            print('No None value exists.')
+            print('Checking None values: No None value exists.')
 
     def get_const_cols(self, df):
         """
@@ -83,6 +82,7 @@ class ScoreCardModel(object):
 
         return df_res
 
+    def
 
     def add_pinepine(self, pipe_name):
         """
