@@ -65,6 +65,9 @@ class ScoreCardModel(object):
         """
         if pipe_name in self.pipe_options:
             self.pinelines.append((len(self.pinelines), pipe_name))
+        else:
+            print('Back pipeline option.')
+            raise TypeError
 
     def model_pineline_proc(self):
         """
