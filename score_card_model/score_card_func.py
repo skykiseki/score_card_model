@@ -18,6 +18,20 @@ class ScoreCardModel(object):
     df: dataframe,输入的训练集
     df_res: dataframe, 输出的训练集
 
+    target: str, Y标特征
+
+    cols_disc: list,离散型特征
+
+    cols_disc_ord: list,有序离散型特征列表,
+
+    cols_disc_disord: list,无序离散型特征列表
+    cols_disc_disord_less: list, 无序离散型分箱少(小于等于阈值箱数)特征列表
+    cols_disc_disord_more: list, 无序离散型分箱多(大于阈值箱数)特征列表
+
+    cols_cont: list, 连续型特征
+
+    max_intervals: int, 最大分箱数
+
     pipe_options: list, 分别有:
     'Check_None': 检查空值
     'Check_Const_Cols': 剔除常值特征
@@ -29,11 +43,26 @@ class ScoreCardModel(object):
 
     """
     def __init__(self,
-                 df: pd.DataFrame,
-                 const_cols_ratio: float):
+                 df,
+                 target,
+                 const_cols_ratio,
+                 cols_disc_ord=[],
+                 max_intervals=5):
         self.df = df
         self.df_res = None
 
+        self.target = target
+
+        self.cols_disc = []
+
+        self.cols_disc_ord = cols_disc_ord
+        self.cols_disc_disord = []
+        self.cols_disc_disord_less = []
+        self.cols_disc_disord_more = []
+
+        self.cols_cont = []
+
+        self.max_intervals = max_intervals
 
         self.pipe_options = ['Check_None', 'Check_Const_Cols']
         self.pinelines = []
@@ -41,8 +70,45 @@ class ScoreCardModel(object):
         self.const_cols_ratio = const_cols_ratio
         self.const_cols = []
 
+        # 获取特征类型
+        self.get_cols_type()
+
         # 当前设定第一步必须检查是否为非空
         self.add_pinepine('Check_None')
+
+    def get_cols_type(self):
+        """
+        对特征进行分类, 当前为识别col类型进行识别, 但是有序与无序的类别性特征需要手工进行输入,
+        object类为类别型特征, 其余为数值型特征
+
+        Parameters:
+        ----------
+
+        Returns:
+        -------
+        self
+
+        """
+        for col in self.df.columns:
+            # 注意剔除Y标
+            if col != self.target:
+                col_dtype = self.df[col].dtype
+                ## 先整理类别型特征和连续型特征
+                if col_dtype == 'O':
+                    self.cols_disc.append(col)
+
+                    ### 再整理类别型特征中是属于有序还是无序
+                    if col not in self.cols_disc_ord:
+                        self.cols_disc_disord.append(col)
+
+                        #### 再整理类别型特征中是属于无序分箱少, 还是属于无序分箱多
+                        if len(set(self.df[col])) <= self.max_intervals:
+                            self.cols_disc_disord_less.append(col)
+                        else:
+                            self.cols_disc_disord_more.append(col)
+                else:
+                    ## 其余的是连续型
+                    self.cols_cont.append(col)
 
     def check_if_has_null(self):
         """
@@ -75,14 +141,13 @@ class ScoreCardModel(object):
         df_res: dataframe, 剔除常值特征后的dataframe
         """
         for col in self.df.columns:
-            if sum(self.df[col].value_counts(normalize=True) >= self.const_cols_ratio) >= 1:
+            if any(self.df[col].value_counts(normalize=True) >= self.const_cols_ratio):
                 self.const_cols.append(col)
 
         df_res = df.drop(self.const_cols, axis=1)
 
         return df_res
 
-    def
 
     def add_pinepine(self, pipe_name):
         """
