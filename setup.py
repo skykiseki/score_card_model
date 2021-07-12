@@ -6,31 +6,26 @@ LONGDOC = """
 
 https://github.com/skykiseki
 
-new-words-detection
+score_card_model
 ====
 
-"新词发现", 
-目前仅有基于苏神（苏剑林）文章写的左右熵以及互信息方法进行词库建设，其他的算法后面有空会继续更新
-
-
-具体链接参考
-[《新词发现的信息熵方法与实现》](https://spaces.ac.cn/archives/3491)
-
+"风险评分卡模型开发" 
+基于最早的FICO风险评分卡逻辑进行优化
 
 
 完整文档见 ``README.md``
 
-GitHub: https://github.com/skykiseki/NewWordDectection
+GitHub: https://github.com/skykiseki/score_card_model
 """
 
-setup(name='new-words-detection',
-      version='1.0.3',
-      description='Chinese Words Segmentation Utilities',
+setup(name='score_card_model',
+      version='1.0.0',
+      description='Risk Score Card Model',
       long_description=LONGDOC,
       long_description_content_type="text/markdown",
       author='Wei, Zhihui',
       author_email='evelinesdd@qq.com',
-      url='https://github.com/skykiseki/NewWordDectection',
+      url='https://github.com/skykiseki/score_card_model',
       license="MIT",
       classifiers=[
         'Intended Audience :: Developers',
@@ -49,9 +44,13 @@ setup(name='new-words-detection',
       python_requires='>=3.6',
       install_requires=[
         'pandas',
-        'numpy'
+        'numpy',
+        'scikit-learn',
+        'statsmodels',
+        'matplotlib',
+        'seaborn'
       ],
-      keywords='NLP,Chinese word detection,Chinese word segementation',
-      packages=['new_words_detection'],
-      package_dir={'NewWordDetection':'new_words_detection'}
+      keywords='Risk Score Card',
+      packages=['score_card_model'],
+      package_dir={'score_card_model':'score_card_model'}
 )
