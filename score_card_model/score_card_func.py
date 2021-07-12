@@ -20,7 +20,7 @@ class ScoreCardModel(object):
 
     pipe_options: list, 分别有:
     'Check_None': 检查空值
-    'Constant_Columns': 剔除常值特征
+    'Check_Const_Cols': 剔除常值特征
 
     pinelines: list, 流水线处理列表
 
@@ -35,11 +35,14 @@ class ScoreCardModel(object):
         self.df_res = None
 
 
-        self.pipe_options = ['Check_None', 'Constant_Columns']
+        self.pipe_options = ['Check_None', 'Check_Const_Cols']
         self.pinelines = []
 
         self.const_cols_ratio = const_cols_ratio
         self.const_cols = []
+
+        # 当前设定第一步必须检查是否为非空
+        self.add_pinepine('Check_None')
 
     def check_if_has_null(self):
         """
@@ -107,14 +110,11 @@ class ScoreCardModel(object):
 
 
         """
-        # 当前设定第一步必须检查是否为非空
-        self.add_pinepine('Check_None')
-
-        df_res = self.df.copy()
+        self.df_res = self.df.copy()
 
         for proc in self.pinelines:
             proc_name = proc[1]
             if proc_name == 'Check_None':
                 self.check_if_has_null()
-            elif proc_name == 'Constant_Columns':
-                df_res = self.get_const_cols(df_res)
+            elif proc_name == 'Check_Const_Cols':
+                self.df_res = self.get_const_cols(self.df_res)
