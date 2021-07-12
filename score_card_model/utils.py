@@ -474,3 +474,42 @@ def cal_woe_iv(regroup_woe_iv):
     dict_woe = regroup_woe_iv['woe'].to_dict()
     iv = regroup_woe_iv['iv'].sum()
     return regroup_woe_iv, dict_woe, iv
+
+
+def init_split(df, featname, init_bins=100):
+    """
+    对df下的featname特征进行分割, 最后返回中间的分割点刻度
+    为了保证所有值都有对应的区间, 取两个值之间的中值作为分割刻度
+    注意这里的分割方式不是等频等常用的方法, 仅仅是简单地找出分割点再进行融合最终进行分割
+    注意, 分出的箱刻度与是否闭区间无关, 这个点取决于用户,这个函数仅考虑分箱的个数
+    同时, 分箱多余的部分会进入最后一个箱, 如101个分100箱, 则最后一个箱有两个样本
+
+    Parameters:
+    ----------
+    df: dataframe,输入的df,
+    featname:str, 特征名称
+    init_bins:int, 需要分的箱个数
+
+    Returns:
+    -------
+    返回分割的刻度列表(升序)，如[1,5,9,18]
+
+    """
+    # 初始化取值个数列表, 同时排序
+    list_unique_vals_order = sorted(list(set(df[featname])))
+    # 取得中间的刻度值, 注意是遍历到len - 1
+    list_median_vals = []
+    for i in range(len(list_unique_vals_order) - 1):
+        list_median_vals.append((list_unique_vals_order[i] + list_unique_vals_order[i + 1]) / 2)
+    # 初始化初始分箱的个数,
+    cnt_unique_vals = len(list_median_vals)
+    # 如果初始分箱个数小于init_bins了, 则直接返回
+    # 如果初始分箱个数大于init_bins, 则从头开始抓取init_bins个值,所以剩余值会留在最后一组
+    if cnt_unique_vals <= init_bins:
+        return list_median_vals
+    else:
+        # 计算每个箱的个数, 注意这里要用求商
+        cnt_perbin = cnt_unique_vals // init_bins
+        # 取得中间的init_bins个值
+        list_median_vals = [list_median_vals[i * cnt_perbin] for i in range(init_bins - 1)]
+        return list_median_vals
