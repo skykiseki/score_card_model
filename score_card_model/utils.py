@@ -513,3 +513,82 @@ def init_split(df, featname, init_bins=100):
         # 取得中间的init_bins个值
         list_median_vals = [list_median_vals[i * cnt_perbin] for i in range(init_bins - 1)]
         return list_median_vals
+
+
+def feat_bins_split(df, featname, init_bins=100):
+    """
+    对超过维度阈值(默认100)的特征进行分组处理, 再返回分组字典, 对不超过维度阈值的特征则直接返回分组字典
+    起始的组总是以(-1, vals]开始, 以(vals, inf)结束
+
+    Parameters:
+    ----------
+    df: dataframe, 输入的dataframe
+    featname: str, 特征名
+    init_bins: 初始化的分箱个数
+
+    Returns:
+    -------
+    cnt_unique_vals+1个分组数(左右两边,加间隔), 返回值格式为{interval0:排序值0, interval1:排序值1......}
+
+    PS: 返回的区间是正序的, 注意*******
+    """
+    dict_vals_to_bins = {}
+    # 先取出分割的刻度
+    list_unique_vals_order = init_split(df, featname=featname, init_bins=init_bins)
+    # 计算刻度的个数, 最终箱子数为刻度数 + 1
+    cnt_unique_vals = len(list_unique_vals_order)
+    # 取得最大最小值
+    min_value = min(list_unique_vals_order)
+    max_value = max(list_unique_vals_order)
+    # 先处理起始区间和中间区间, 再在最后添加一个末尾区间(因为i在遍历的时候最后一个元素要遍历两次, 为了好理解就分开处理)
+    for i in range(cnt_unique_vals):
+        if i == 0:
+            interval_label = '(-1,%.4f]' % min_value
+            dict_vals_to_bins[interval_label] = 0
+        else:
+            interval_val_l = list_unique_vals_order[i - 1]
+            interval_val_r = list_unique_vals_order[i]
+            interval_label = '({0:.4f},{1:.4f}]'.format(interval_val_l, interval_val_r)
+            dict_vals_to_bins[interval_label] = i
+    # 插入末尾区间
+    interval_label = '(%.4f,+Inf)' % max_value
+    dict_vals_to_bins[interval_label] = cnt_unique_vals
+
+    return dict_vals_to_bins
+
+
+def intervals_split_merge(list_lab_intervals):
+    """
+    对界限列表进行融合
+
+    e.g.
+    如['(2,5]', '(5,7]'], 融合后输出为 '(2,7]'
+
+    Parameters:
+    ----------
+    list_lab_intervals: list, 界限区间字符串列表
+
+    Returns:
+    -------
+    label_merge: 合并后的区间
+    """
+    list_labels = []
+    # 遍历每个区间, 取得左值右值字符串组成列表
+    for lab in list_lab_intervals:
+        for s in lab.split(','):
+            list_labels.append(s.replace('(', '').replace(')', '').replace(']', ''))
+    list_lab_vals = [float(lab) for lab in list_labels]
+    # 取得最大最小值的索引
+    id_max_val = list_lab_vals.index(max(list_lab_vals))
+    id_min_val = list_lab_vals.index(min(list_lab_vals))
+    # 取得最大最小值的字符串
+    lab_max_interval = list_labels[id_max_val]
+    lab_min_interval = list_labels[id_min_val]
+    # 如果右边界限的值为+Inf,则改为')', 其他为']'
+    l_label = '('
+    if lab_max_interval == '+Inf':
+        r_label = ')'
+    else:
+        r_label = ']'
+    label_merge = l_label + lab_min_interval + ',' + lab_max_interval + r_label
+    return label_merge
