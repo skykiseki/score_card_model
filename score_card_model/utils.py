@@ -540,8 +540,8 @@ def feat_bins_split(df, featname, init_bins=100):
     # 计算刻度的个数, 最终箱子数为刻度数 + 1
     cnt_unique_vals = len(list_unique_vals_order)
     # 取得最大最小值
-    min_value = min(list_unique_vals_order)
-    max_value = max(list_unique_vals_order)
+    min_value, max_value = min(list_unique_vals_order), max(list_unique_vals_order)
+
     # 先处理起始区间和中间区间, 再在最后添加一个末尾区间(因为i在遍历的时候最后一个元素要遍历两次, 为了好理解就分开处理)
     for i in range(cnt_unique_vals):
         if i == 0:
