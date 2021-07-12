@@ -39,7 +39,7 @@ class ScoreCardModel(object):
         -------
         bool, 是否含有空值元素
         """
-        print('Checking if exists None value.')
+        print('Checking if exists None value......')
         if self.df.isnull().sum().sum() == 0:
             return True
         else:
@@ -70,3 +70,5 @@ class ScoreCardModel(object):
         if self.check_if_has_null():
             print('None value exists.Please fix your data.')
             raise TypeError
+        else:
+            print('No None value exists.')
