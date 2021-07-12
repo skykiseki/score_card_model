@@ -30,7 +30,7 @@ class ScoreCardModel(object):
     cols_cont: list, 连续型特征
 
     max_intervals: int, 最大分箱数
-    min_pct: float, 特征单属性样本最小占比
+    min_pnt: float, 特征单属性样本最小占比
 
     pipe_options: list, 分别有:
     'Check_None': 检查空值
@@ -48,7 +48,7 @@ class ScoreCardModel(object):
                  const_cols_ratio,
                  cols_disc_ord=[],
                  max_intervals=5,
-                 min_pct=0.05):
+                 min_pnt=0.05):
         self.df = df
         self.df_res = None
 
@@ -64,7 +64,7 @@ class ScoreCardModel(object):
         self.cols_cont = []
 
         self.max_intervals = max_intervals
-        self.min_pct = min_pct
+        self.min_pnt = min_pnt
 
         self.pipe_options = ['Check_None', 'Check_Const_Cols']
         self.pinelines = []

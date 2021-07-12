@@ -1,5 +1,5 @@
 import pandas as pd
-
+import numpy as np
 
 def bin_badrate(df, col_name, target):
     """
@@ -413,3 +413,64 @@ def regroup_special_merge(regroup_nor, regroup_special):
 
     # 返回合并的dataframe
     return pd.concat([regroup_nor, regroup_special], axis=0)
+
+
+def check_if_min_pnt(regroup, row_num, min_pnt=0.05):
+    """
+    检查是否存在样本数占比小于阈值的分组
+
+    Parameters:
+    ----------
+    regroup: badrate group
+    row_num: df.shape[0]
+    min_pnt: 单个屬性最小占比
+
+    Returns:
+    bool
+    """
+
+    rg = regroup.copy()
+    # 如果不存在pnt_feat_vals, 则重新创建一个
+    if 'pnt_feat_vals' not in rg.columns:
+        rg['pnt_feat_vals'] = rg['num_feat_vals'] / row_num
+    if rg.loc[rg['pnt_feat_vals'] < min_pnt].shape[0] > 0:
+        return True
+    else:
+        return False
+
+
+def cal_woe_iv(regroup_woe_iv):
+    """
+    计算regroup(regroup_woe_iv)的WOE和IV
+    这个时候的regroup_woe_iv只有num_feat_vals、num_feat_bad、bad_rate三个字段
+
+    Parameters:
+    ----------
+    regroup_woe_iv: badrate regroup
+
+    Returns:
+    -------
+    regroup_woe_iv: 增加woe,iv等列的badrate regroup
+    dict_woe: 特征与woe的映射
+    iv: 特征iv值
+    """
+
+    # 计算总坏样本数
+    num_total_bad = regroup_woe_iv['num_feat_bad'].sum()
+    # 计算sub_bad_rate, 该组坏样本数/总坏样本数
+    regroup_woe_iv['sub_bad_rate'] = regroup_woe_iv['num_feat_bad'] / num_total_bad
+
+    # 计算num_feat_good, 好样本数
+    regroup_woe_iv['num_feat_good'] = regroup_woe_iv['num_feat_vals'] - regroup_woe_iv['num_feat_bad']
+    # 计算总好样本数
+    num_total_good = regroup_woe_iv['num_feat_good'].sum()
+    # 计算sub_good_rate, 该组好样本数/总好样本数
+    regroup_woe_iv['sub_good_rate'] = regroup_woe_iv['num_feat_good'] / num_total_good
+    # 计算woe值, woe = ln(bad_rate/good_rate)
+    regroup_woe_iv['woe'] = np.log(regroup_woe_iv['sub_bad_rate'] / regroup_woe_iv['sub_good_rate'])
+    # 计算iv, iv = (good_rate - bad_rate) * woe
+    regroup_woe_iv['iv'] = (regroup_woe_iv['sub_bad_rate'] - regroup_woe_iv['sub_good_rate']) * regroup_woe_iv['woe']
+    # 返回regourp_woe_iv, dict_woe, 特征的IV值
+    dict_woe = regroup_woe_iv['woe'].to_dict()
+    iv = regroup_woe_iv['iv'].sum()
+    return regroup_woe_iv, dict_woe, iv
