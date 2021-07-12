@@ -135,3 +135,77 @@ def chi2sum_id(regroup, field='all'):
         else:
             id_min = k + 1
     return id_min
+
+
+def order_regroup(regroup, feat_order=False, check_object='chi2sum_min'):
+    """
+    特征分组的排序
+
+    变量分组合并需要遵循以下规则：
+    1、离散无序less, 合并的相邻组怀样本率应相邻
+    2、离散有序变量, 合并的相邻组不能破坏其有序性：
+    3、连续型变量合并的相邻组取值大小相近
+
+    具体单调性要求看：
+    https://blog.csdn.net/shenxiaoming77/article/details/79548807
+
+    Parameters:
+    ----------
+    regroup:dataframe, 特征的bad_rate的dataframe, func bin_badrate的返回值, 输入时未排序
+
+    feat_order:boolean, 分箱的特征是否有序
+
+    check_object:str,
+    检测对象
+    'badrarte' -> 针对badrate为0或1的情况,可选取值：
+    'min_pnt' -> 针对某组样本总数占所有组样本总数的比例是否大于等于期望最小比例的情况；
+    'chi2sum_min' -> 针对需要找到卡方值最小相邻组的情况；
+
+    Returns:
+    -------
+    当检测对象为badrarte, 返回badrate为0或1的情况下需要合并的箱id
+    当检测对象为min_pnt, 返回基于最小箱样本占比需要合并的箱id
+    当检测对象为chi2sum_min, 返回基于卡方值需要合并的箱id
+    """
+    # copy一份dataframe,不能直接传参, 否则会变成引用
+    rg = regroup.copy()
+    # 如果特征有序, 则按其自然编码排序,即按其索引进行排序
+    # 这里要求在输入的时候特征已经是排序编码好的, 如00,01,02,03......11,12
+    # 如果特征无序, 则按其bad_rate进行排序
+    if feat_order:
+        rg = rg.sort_index()
+    else:
+        rg = rg.sort_values(by='bad_rate')
+
+    if check_object == 'chi2sum_min':
+        # 全局最小卡方值合并, 返回需要合并的id
+        id_merge = chi2sum_id(rg)
+        return rg, id_merge
+
+    elif check_object == 'min_pnt':
+        # 对指定的箱进行合并
+        # 找出最小pnt所在的value label
+        # ****pnt_feat_vals需要额外计算****
+        label_minpnt = rg['pnt_feat_vals'].idxmin()
+        # 找出对应的索引序列值
+        id_minpnt = list(rg.index).index(label_minpnt)
+        # 对对应的k值进行合并
+        id_pnt = chi2sum_id(rg, field=id_minpnt)
+        return rg, id_pnt
+
+    elif check_object == 'bad_rate':
+        # 对bad_rate为0或者1的箱进行合并?
+        # 对bad_rate=0
+        label_minbadrate = rg['bad_rate'].idxmin()
+        id_badrate_min = list(rg.index).index(label_minbadrate)
+        id_badrate_0 = chi2sum_id(rg, field=id_badrate_min)
+        # 对bad_rate=1
+        label_maxbadrate = rg['bad_rate'].idxmax()
+        id_badrate_max = list(rg.index).index(label_maxbadrate)
+        id_badrate_1 = chi2sum_id(rg, field=id_badrate_max)
+        # 事实上, 当为无序时, 因为这个函数开始就做了排序, 所以下面的id_badrate_0永远是1, id_badrate_1永远是len - 1
+
+        return rg, id_badrate_0, id_badrate_1
+
+    else:
+        print("Incorrect 'check_object' para is inputted.")
