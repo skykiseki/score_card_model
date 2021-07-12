@@ -373,3 +373,43 @@ def monotone_badrate(regroup, shape='mono', u=False):
             ret_is_mono = any([is_u_down, is_u_up])
 
     return ret_is_mono
+
+
+def regroup_special_merge(regroup_nor, regroup_special):
+    """
+    在分箱的时候,可能存在特殊值不加入分箱,自成一箱,这个时候可能存在这些自成一箱的部分bad_rate为0或者1
+    在bad_rate为0或者1的时候, 这时候分箱属于极限分布,由于log0下为无限,所以可以手工+-1来调整最后的badrate取值(由于单调, 这时候不会很大影响)
+
+    Parameters:
+    ----------
+    regroup_nor: 正常部分的regourp
+    regroup_special: 特殊值部分的regourp
+
+    Returns:
+    -------
+    修正num_feat_bad,bad_rate后的regroup
+    """
+    # 如果特殊值的分组存在bad_rate为0的情况
+    while regroup_special['bad_rate'].min() == 0:
+        # 先找出bad_rate为0的索引值(标签)
+        label_0 = regroup_special['bad_rate'].idxmin()
+        # 将该组的bad数调整为1, 然后重新计算bad_rate
+        regroup_special.loc[label_0, 'num_feat_bad'] = 1
+        regroup_special['bad_rate'] = regroup_special['num_feat_bad'] / regroup_special['num_feat_vals']
+
+    # 如果特殊值得分组存在bad_rate为1的情况
+    while regroup_special['bad_rate'].max() == 1:
+        # 找出bad_rate为1的索引值(标签)
+        label_1 = regroup_special['bad_rate'].idxmax()
+        # 将该组的bad数调整减1,然后重新计算bad_rate
+        regroup_special.loc[label_1, 'num_feat_bad'] -= 1
+        regroup_special['bad_rate'] = regroup_special['num_feat_bad'] / regroup_special['num_feat_vals']
+
+    # 如果两个regroup或者其中之一存在'pnt_feat_vals'字段, 要先剔除
+    if 'pnt_feat_vals' in regroup_nor.columns:
+        regroup_nor = regroup_nor.drop('pnt_feat_vals', axis=1)
+    if 'pnt_feat_vals' in regroup_special:
+        regroup_special = regroup_special.drop('pnt_feat_vals', axis=1)
+
+    # 返回合并的dataframe
+    return pd.concat([regroup_nor, regroup_special], axis=0)
