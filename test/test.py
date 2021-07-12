@@ -1,6 +1,6 @@
 import pandas as pd
 from score_card_model.score_card_func import ScoreCardModel
-from utils import bin_badrate
+from utils import chi2_cutting_discrete
 
 if __name__ == '__main__':
     df_data = pd.read_excel("./test.xlsx")
@@ -17,7 +17,20 @@ if __name__ == '__main__':
     scm_obj.add_pinepine('Check_Const_Cols')
     scm_obj.model_pineline_proc()
 
-    print(bin_badrate(df=df_data, col_name='emp_length', target='loan_status'))
+    discrete_order = {'emp_length': {'00': 0, '01': 1, '02': 2, '03': 3, '04': 4,
+                                     '05': 5, '06': 6, '07': 7, '08': 8, '09': 9,
+                                     '10': 10}}
+
+    a, b, c = chi2_cutting_discrete(df_data=df_data,
+                                    feat_list=scm_obj.cols_disc_disord_less + scm_obj.cols_disc_ord,
+                                    target='loan_status',
+                                    special_feat_val={},
+                                    max_intervals=scm_obj.max_intervals,
+                                    min_pnt=scm_obj.min_pnt,
+                                    discrete_order=discrete_order,
+                                    mono_expect={'emp_length': {'shape': 'mono','u': False}})
+
+
 
 
 
