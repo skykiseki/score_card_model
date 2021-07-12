@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# pycharm
+*.idea
+
+# csv
+*.csv
