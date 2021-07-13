@@ -36,6 +36,7 @@ class ScoreCardModel(object):
 
     max_intervals: int, 最大分箱数
     min_pnt: float, 特征单属性样本最小占比
+    mono_expect: dict, 特征的单调性要求, {‘col’: {'shape': 'mono', 'u':False}}
 
     pipe_options: list, 分别有:
     'Check_Target': 检查Y标
@@ -47,6 +48,14 @@ class ScoreCardModel(object):
 
     const_cols_ratio: float, 常值字段的阈值%
     const_cols: list, 常值字段
+
+    self.dict_disc_cols_to_bins: dict, 离散特征的分组取值
+    self.dict_disc_iv: dict, 离散特征的woe编码后的IV
+    self.dict_disc_woe: dict, 离散特征分组后的woe值
+
+    self.dict_cont_cols_to_bins: dict, 连续特征的分组取值
+    self.dict_cont_iv: dict, 连续特征的woe编码后的IV
+    self.dict_cont_woe: dict, 连续特征分组后的woe值
 
     """
     def __init__(self, df, target):
@@ -79,6 +88,14 @@ class ScoreCardModel(object):
         self.pinelines = []
 
         self.const_cols = []
+
+        self.dict_disc_cols_to_bins = None
+        self.dict_disc_iv = None
+        self.dict_disc_woe = None
+
+        self.dict_cont_cols_to_bins = None
+        self.dict_cont_iv = None
+        self.dict_cont_woe = None
 
     def add_min_pnt(self, min_pnt):
         """
@@ -261,16 +278,46 @@ class ScoreCardModel(object):
         self.df = self.df.drop(self.const_cols, axis=1)
 
     def chi2_cutting(self):
-        feat_list = self.cols_disc_disord_less + self.cols_disc_ord
-        disc_special_feat_vals = {k:v for k,v in self.sp_vals_cols.items() if k in feat_list}
-        chi2_cutting_discrete(df_data=self.df,
-                              feat_list=feat_list,
-                              target=self.target,
-                              special_feat_val=disc_special_feat_vals,
-                              max_intervals=self.max_intervals,
-                              min_pnt=self.min_pnt,
-                              discrete_order=self.idx_cols_disc_ord,
-                              mono_expect={'emp_length': {'shape': 'mono', 'u': False}})
+
+        # 先处理无序分箱少离散特征 & 有序离散特征
+        disc_cols_list = self.cols_disc_disord_less + self.cols_disc_ord
+
+        ## 特殊值
+        disc_special_cols_vals = {k:v for k,v in self.sp_vals_cols.items() if k in disc_cols_list}
+
+        ## 单调性要求
+        disc_mono_expect = {k:v for k,v in self.mono_expect.items() if k in disc_cols_list}
+
+        ## 开始分箱
+        self.dict_disc_cols_to_bins, self.dict_disc_iv, self.dict_disc_woe = chi2_cutting_discrete(df_data=self.df,
+                                                                                                   feat_list=disc_cols_list,
+                                                                                                   target=self.target,
+                                                                                                   special_feat_val=disc_special_cols_vals,
+                                                                                                   max_intervals=self.max_intervals,
+                                                                                                   min_pnt=self.min_pnt,
+                                                                                                   discrete_order=self.idx_cols_disc_ord,
+                                                                                                   mono_expect=disc_mono_expect)
+
+
+        # 开始处理无序分箱多离散特征 & 连续特征
+        cont_cols_list = self.cols_disc_disord_more + self.cols_cont
+
+        ## 特殊值
+        cont_special_cols_vals = {k:v for k,v in self.sp_vals_cols.items() if k in cont_cols_list}
+
+        ## 单调性要求
+        cont_mono_expect = {k:v for k,v in self.mono_expect.items() if k in cont_cols_list}
+
+        ## 开始分箱
+        self.dict_cont_cols_to_bins, self.dict_cont_iv, self.dict_cont_woe = chi2_cutting_continuous(df_data=self.df,
+                                                                                                     feat_list=cont_cols_list,
+                                                                                                     target=self.target,
+                                                                                                     discrete_more_feats=self.cols_disc_disord_more,
+                                                                                                     special_feat_val=cont_special_cols_vals,
+                                                                                                     max_intervals=self.max_intervals,
+                                                                                                     min_pnt=self.min_pnt,
+                                                                                                     mono_expect=cont_mono_expect)
+
 
 
     def add_pinepine(self, pipe_name):
@@ -348,6 +395,7 @@ class ScoreCardModel(object):
         self.add_pinepine('Add_Mono_Expect')
 
         # 第五步开始卡方分箱
+        self.add_pinepine('Chi2_Cutting')
 
         # 开始遍历流程处理
         for proc in self.pinelines:
@@ -363,3 +411,5 @@ class ScoreCardModel(object):
                 self.get_cols_type()
             elif proc_name == 'Add_Mono_Expect':
                 self.add_mono_expect()
+            elif proc_name == 'Chi2_Cutting':
+                self.chi2_cutting()
