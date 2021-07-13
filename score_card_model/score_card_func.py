@@ -91,8 +91,7 @@ class ScoreCardModel(object):
         self.mono_expect = None
 
         self.pipe_options = ['Check_Target', 'Check_None', 'Check_Const_Cols', 'Check_Cols_Types',
-                             'Add_Mono_Expect',
-                             'Chi2_Cutting']
+                             'Add_Mono_Expect','Chi2_Cutting', 'Woe_Transform']
         self.pinelines = []
 
         self.const_cols = []
@@ -348,7 +347,6 @@ class ScoreCardModel(object):
     def trans_df_to_woe(self):
         """
         对样本进行woe转化
-        (考虑到整个链路耦合太厉害容易报错, 所以woe转化之后的步骤都单独分离出来)
 
         Parameters:
         ----------
@@ -356,7 +354,7 @@ class ScoreCardModel(object):
 
         Returns:
         -------
-        df_woe: woe转化后的dataframe
+        self
         """
         df_woe = self.df.copy()
 
@@ -377,13 +375,7 @@ class ScoreCardModel(object):
 
             df_woe[col] = df_woe[col].map(dict_col_to_bins).map(dict_bins_to_woe)
 
-        return df_woe
-
-
-
-
-
-
+        self.df_woe = df_woe
 
     def add_pinepine(self, pipe_name):
         """
@@ -460,6 +452,10 @@ class ScoreCardModel(object):
         # 第五步开始卡方分箱
         self.add_pinepine('Chi2_Cutting')
 
+        # 第六步进行woe转换
+        self.add_pinepine('Woe_Transform')
+
+
         # 开始遍历流程处理
         for proc in self.pinelines:
             proc_name = proc[1]
@@ -476,3 +472,5 @@ class ScoreCardModel(object):
                 self.add_mono_expect()
             elif proc_name == 'Chi2_Cutting':
                 self.chi2_cutting()
+            elif proc_name == 'Woe_Transform':
+                self.trans_df_to_woe()
