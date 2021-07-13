@@ -89,7 +89,7 @@ class ScoreCardModel(object):
         -------
         self
         """
-        self.max_intervals = min_pnt
+        self.min_pnt = min_pnt
 
 
     def add_max_intervals(self, max_intervals):

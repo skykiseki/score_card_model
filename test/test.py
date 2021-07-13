@@ -29,6 +29,7 @@ if __name__ == '__main__':
 
     print(scm_obj.sp_vals_cols_disc)
     print(scm_obj.const_cols_ratio, scm_obj.max_intervals, scm_obj.min_pnt)
+    print('ss' + str(scm_obj.max_intervals))
     print(scm_obj.idx_cols_disc_ord)
     print(scm_obj.cols_disc_ord)
     print(scm_obj.pinelines)
