@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
 import warnings
+from tqdm import tqdm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.metrics import roc_curve, roc_auc_score
 from matplotlib.ticker import MultipleLocator
-from utils import chi2_cutting_discrete, chi2_cutting_continuous
+from utils import chi2_cutting_discrete, chi2_cutting_continuous, value_to_intervals
 warnings.filterwarnings('ignore')
 
 
@@ -18,7 +19,7 @@ class ScoreCardModel(object):
     Attributes:
     ----------
     df: dataframe,输入的训练集
-    df_res: dataframe, 输出的训练集
+    df_woe: dataframe, 输出的woe训练集
 
     target: str, Y标特征
 
@@ -49,6 +50,9 @@ class ScoreCardModel(object):
     const_cols_ratio: float, 常值字段的阈值%
     const_cols: list, 常值字段
 
+    self.disc_cols_cut: list, 参与无序分箱少离散 & 有序离散分箱的特征,
+    self.cont_cols_cut: list, 参与无序分箱多离散 & 连续型分箱的特征
+
     self.dict_disc_cols_to_bins: dict, 离散特征的分组取值
     self.dict_disc_iv: dict, 离散特征的woe编码后的IV
     self.dict_disc_woe: dict, 离散特征分组后的woe值
@@ -57,10 +61,14 @@ class ScoreCardModel(object):
     self.dict_cont_iv: dict, 连续特征的woe编码后的IV
     self.dict_cont_woe: dict, 连续特征分组后的woe值
 
+    self.dict_cols_to_bins: dict, 所有特征的分组取值
+    self.dict_iv: dict, 所有特征的IV
+    self.dict_woe: dict, 所有特征的woe值
+
     """
     def __init__(self, df, target):
         self.df = df
-        self.df_res = None
+        self.df_woe = None
 
         self.target = target
 
@@ -89,13 +97,20 @@ class ScoreCardModel(object):
 
         self.const_cols = []
 
-        self.dict_disc_cols_to_bins = None
-        self.dict_disc_iv = None
-        self.dict_disc_woe = None
+        self.disc_cols_cut = []
+        self.cont_cols_cut = []
 
-        self.dict_cont_cols_to_bins = None
-        self.dict_cont_iv = None
-        self.dict_cont_woe = None
+        self.dict_disc_cols_to_bins = {}
+        self.dict_disc_iv = {}
+        self.dict_disc_woe = {}
+
+        self.dict_cont_cols_to_bins = {}
+        self.dict_cont_iv = {}
+        self.dict_cont_woe = {}
+
+        self.dict_cols_to_bins = {}
+        self.dict_iv = {}
+        self.dict_woe = {}
 
     def add_min_pnt(self, min_pnt):
         """
@@ -280,17 +295,17 @@ class ScoreCardModel(object):
     def chi2_cutting(self):
 
         # 先处理无序分箱少离散特征 & 有序离散特征
-        disc_cols_list = self.cols_disc_disord_less + self.cols_disc_ord
+        self.disc_cols_cut = self.cols_disc_disord_less + self.cols_disc_ord
 
         ## 特殊值
-        disc_special_cols_vals = {k:v for k,v in self.sp_vals_cols.items() if k in disc_cols_list}
+        disc_special_cols_vals = {k:v for k,v in self.sp_vals_cols.items() if k in self.disc_cols_cut}
 
         ## 单调性要求
-        disc_mono_expect = {k:v for k,v in self.mono_expect.items() if k in disc_cols_list}
+        disc_mono_expect = {k:v for k,v in self.mono_expect.items() if k in self.disc_cols_cut}
 
         ## 开始分箱
         self.dict_disc_cols_to_bins, self.dict_disc_iv, self.dict_disc_woe = chi2_cutting_discrete(df_data=self.df,
-                                                                                                   feat_list=disc_cols_list,
+                                                                                                   feat_list=self.disc_cols_cut,
                                                                                                    target=self.target,
                                                                                                    special_feat_val=disc_special_cols_vals,
                                                                                                    max_intervals=self.max_intervals,
@@ -300,23 +315,66 @@ class ScoreCardModel(object):
 
 
         # 开始处理无序分箱多离散特征 & 连续特征
-        cont_cols_list = self.cols_disc_disord_more + self.cols_cont
+        self.cont_cols_cut = self.cols_disc_disord_more + self.cols_cont
 
         ## 特殊值
-        cont_special_cols_vals = {k:v for k,v in self.sp_vals_cols.items() if k in cont_cols_list}
+        cont_special_cols_vals = {k:v for k,v in self.sp_vals_cols.items() if k in self.cont_cols_cut}
 
         ## 单调性要求
-        cont_mono_expect = {k:v for k,v in self.mono_expect.items() if k in cont_cols_list}
+        cont_mono_expect = {k:v for k,v in self.mono_expect.items() if k in self.cont_cols_cut}
 
         ## 开始分箱
         self.dict_cont_cols_to_bins, self.dict_cont_iv, self.dict_cont_woe = chi2_cutting_continuous(df_data=self.df,
-                                                                                                     feat_list=cont_cols_list,
+                                                                                                     feat_list=self.cont_cols_cut,
                                                                                                      target=self.target,
                                                                                                      discrete_more_feats=self.cols_disc_disord_more,
                                                                                                      special_feat_val=cont_special_cols_vals,
                                                                                                      max_intervals=self.max_intervals,
                                                                                                      min_pnt=self.min_pnt,
                                                                                                      mono_expect=cont_mono_expect)
+
+        # 分组取值
+        self.dict_cols_to_bins.update(self.dict_disc_cols_to_bins)
+        self.dict_cols_to_bins.update(self.dict_cont_cols_to_bins)
+
+        # Woe系数
+
+        # 特征iv
+
+    def trans_df_to_woe(self):
+        """
+        对样本进行woe转化
+
+        Parameters:
+        ----------
+        self
+
+        Returns:
+        -------
+        self
+        """
+        df_woe = self.copy()
+
+        for col in tqdm(df_woe.columns, desc='Woe Transforming'):
+            # 遍历处理特征, 注意排除target
+            if col == self.target:
+                continue
+
+            # 特征的映射字典和映射的woe, {val1: 分组序值1, val2: 分组序值2}
+            # 分组序值对应的woe值 {分组序值1: woe1, 分组序值2: woe2}
+            dict_col_to_bins = self.dict_cols_to_bins[col]
+            dict_bins_to_woe = self.dict_woe[col]
+
+            # 开始转化特征
+            # 离散型直接转化, 连续型则需要做个转化
+            if col in self.cols_cont:
+                df_woe[col] = df_woe[col].apply(lambda x: value_to_intervals(value=x, dict_valstoinv=dict_col_to_bins))
+
+            df_woe[col] = df_woe[col].map(dict_col_to_bins).map(dict_bins_to_woe)
+
+
+
+
 
 
 
@@ -359,8 +417,6 @@ class ScoreCardModel(object):
         """
         if pipe_config is None:
             pipe_config = {}
-
-        self.df_res = self.df.copy()
 
         # 处理输入参数
         for config in pipe_config.keys():

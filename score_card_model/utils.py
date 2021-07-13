@@ -1202,3 +1202,4 @@ def chi2_cutting_continuous(df_data, feat_list, target,
         dict_contin_woe[feat] = dict_woe
 
     return dict_contin_feat_to_bins, dict_contin_iv, dict_contin_woe
+
