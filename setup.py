@@ -48,7 +48,8 @@ setup(name='score_card_model',
         'scikit-learn',
         'statsmodels',
         'matplotlib',
-        'seaborn'
+        'seaborn',
+        'tqdm'
       ],
       keywords='Risk Score Card',
       packages=['score_card_model'],

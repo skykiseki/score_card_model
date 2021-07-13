@@ -4,8 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
-from sklearn.metrics import roc_curve
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve, roc_auc_score
 from matplotlib.ticker import MultipleLocator
 
 class ScoreCardModel(object):
@@ -35,6 +34,7 @@ class ScoreCardModel(object):
     pipe_options: list, 分别有:
     'Check_None': 检查空值
     'Check_Const_Cols': 剔除常值特征
+    'Check_Cols_Types': 获取字段类型
 
     pinelines: list, 流水线处理列表
 
@@ -66,14 +66,11 @@ class ScoreCardModel(object):
         self.max_intervals = max_intervals
         self.min_pnt = min_pnt
 
-        self.pipe_options = ['Check_None', 'Check_Const_Cols']
+        self.pipe_options = ['Check_None', 'Check_Const_Cols', 'Check_Cols_Types']
         self.pinelines = []
 
         self.const_cols_ratio = const_cols_ratio
         self.const_cols = []
-
-        # 获取特征类型
-        self.get_cols_type()
 
         # 当前设定第一步必须检查是否为非空
         self.add_pinepine('Check_None')
@@ -130,26 +127,23 @@ class ScoreCardModel(object):
         else:
             print('Checking None values: No None value exists.')
 
-    def get_const_cols(self, df):
+    def get_const_cols(self):
         """
         获得常值特征, 即特征列某个属性占比超阈值%
 
         Parameters:
         ----------
-        df: dataframe,输入的dataframe
 
         Returns:
         -------
-        df_res: dataframe, 剔除常值特征后的dataframe
+        self
         """
         for col in self.df.columns:
-            if any(self.df[col].value_counts(normalize=True) >= self.const_cols_ratio):
-                self.const_cols.append(col)
+            if col != self.target:
+                if any(self.df[col].value_counts(normalize=True) >= self.const_cols_ratio):
+                    self.const_cols.append(col)
 
-        df_res = df.drop(self.const_cols, axis=1)
-
-        return df_res
-
+        self.df = self.df.drop(self.const_cols, axis=1)
 
     def add_pinepine(self, pipe_name):
         """
@@ -184,4 +178,6 @@ class ScoreCardModel(object):
             if proc_name == 'Check_None':
                 self.check_if_has_null()
             elif proc_name == 'Check_Const_Cols':
-                self.df_res = self.get_const_cols(self.df_res)
+                self.get_const_cols()
+            elif proc_name == 'Check_Cols_Types':
+                self.get_cols_type()

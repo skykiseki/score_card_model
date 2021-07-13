@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 
 def bin_badrate(df, col_name, target):
     """
@@ -771,7 +772,7 @@ def chi2_cutting_discrete(df_data, feat_list, target,
     dict_discrete_woe = {}
 
     # 开始遍历
-    for feat in feat_list:
+    for feat in tqdm(feat_list, desc="Cutting discrete features:"):
         # 参数初始化
         intervals = max_intervals
         # 初始化dataframe
@@ -1027,7 +1028,7 @@ def chi2_cutting_continuous(df_data, feat_list, target,
     dict_contin_woe = {}
 
     # 开始处理
-    for feat in feat_list:
+    for feat in tqdm(feat_list, desc="Cutting continuous features:"):
         # 参数初始化, 和离散型不同, 这里不需要feat_valToBins
         intervals = max_intervals
         df = df_data.loc[:, [feat, target]]
