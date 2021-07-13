@@ -474,3 +474,32 @@ class ScoreCardModel(object):
                 self.chi2_cutting()
             elif proc_name == 'Woe_Transform':
                 self.trans_df_to_woe()
+
+    def filter_df_woe_iv(self, df_woe, iv_thres=0.01):
+        """
+        选出基于iv阈值需要踢出的特征名
+
+        Parameters:
+        ----------
+        iv_thres: float, 最小的IV阈值
+
+        Returns:
+        cols_filter: list, 小于IV阈值的特征列表
+
+        """
+        cols_filter = []
+        for col in df_woe.columns:
+            if col != self.target
+                # 先获取特征的iv值
+                iv_col = self.dict_iv[col]
+                # 是否小于阈值
+                if iv_col < iv_thres:
+                    cols_filter.append(col)
+
+        return cols_filter
+
+
+    def filter_df_woe_corr(self, corr_thres=0.7):
+        pass
+
+    def filter_
