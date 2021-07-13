@@ -67,13 +67,16 @@ class ScoreCardModel(object):
         self.max_intervals = max_intervals
         self.min_pnt = min_pnt
 
-        self.pipe_options = ['Check_None', 'Check_Const_Cols', 'Check_Cols_Types']
+        self.pipe_options = ['Check_Target', 'Check_None', 'Check_Const_Cols', 'Check_Cols_Types']
         self.pinelines = []
 
         self.const_cols_ratio = const_cols_ratio
         self.const_cols = []
 
-        # 当前设定第一步必须检查是否为非空
+        # 当前设定第一步必须检查Y标是否唯一的错误
+        self.add_pinepine('Check_Target')
+
+        # 当前设定第二步必须检查是否为非空
         self.add_pinepine('Check_None')
 
     def add_cols_disc_ord(self, idx_cols_disc_ord):
@@ -98,8 +101,6 @@ class ScoreCardModel(object):
             for k in idx_cols_disc_ord:
                 self.cols_disc_ord.append(k)
                 self.idx_cols_disc_ord = idx_cols_disc_ord
-
-
 
     def get_cols_type(self):
         """
@@ -134,6 +135,15 @@ class ScoreCardModel(object):
                 else:
                     ## 其余的是连续型
                     self.cols_cont.append(col)
+
+    def check_target(self):
+        """
+        简单检查一下Y标的分布是否正确
+
+        """
+        if len(self.df[self.target].unique()) <= 1:
+            print('Bad Target!!!')
+            raise TypeError
 
     def check_if_has_null(self):
         """
@@ -201,7 +211,9 @@ class ScoreCardModel(object):
 
         for proc in self.pinelines:
             proc_name = proc[1]
-            if proc_name == 'Check_None':
+            if proc_name == 'Check_Target':
+                self.check_target()
+            elif proc_name == 'Check_None':
                 self.check_if_has_null()
             elif proc_name == 'Check_Const_Cols':
                 self.get_const_cols()

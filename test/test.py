@@ -8,8 +8,7 @@ if __name__ == '__main__':
 
     scm_obj = ScoreCardModel(df=df_data,
                              target='loan_status',
-                             const_cols_ratio=0.9,
-                             cols_disc_ord=['emp_length'])
+                             const_cols_ratio=0.9)
 
     idx_cols_disc_ord = {'emp_length': {'00': 0, '01': 1, '02': 2, '03': 3, '04': 4,
                                         '05': 5, '06': 6, '07': 7, '08': 8, '09': 9,
