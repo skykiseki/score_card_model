@@ -23,7 +23,7 @@ class ScoreCardModel(object):
     target: str, Y标特征
 
     cols_disc: list,离散型特征
-    sp_vals_cols_disc: dict, 某个特征下不参与分箱的特殊值,具体格式如下:
+    sp_vals_cols: dict, 某个特征下不参与分箱的特殊值,具体格式如下:
                       {特征名1: [特殊值1...特殊值r], 特征名2: [特殊值1...特殊值o, ......], 特征名k: [特殊值1...特殊值n]}
 
     cols_disc_ord: list,有序离散型特征列表,
@@ -56,7 +56,7 @@ class ScoreCardModel(object):
         self.target = target
 
         self.cols_disc = []
-        self.sp_vals_cols_disc = {}
+        self.sp_vals_cols = {}
 
         self.cols_disc_ord = []
         self.idx_cols_disc_ord = {}
@@ -144,20 +144,20 @@ class ScoreCardModel(object):
                 self.cols_disc_ord.append(k)
                 self.idx_cols_disc_ord = idx_cols_disc_ord
 
-    def add_disc_sp_vals(self, sp_vals_cols_disc):
+    def add_disc_sp_vals(self, sp_vals_cols):
         """
         添加离散型特征的特殊值
 
         Paramters:
         ---------
-        sp_vals_cols_disc: dict, 某个特征下不参与分箱的特殊值,具体格式如下:
+        sp_vals_cols: dict, 某个特征下不参与分箱的特殊值,具体格式如下:
                       {特征名1: [特殊值1...特殊值r], 特征名2: [特殊值1...特殊值o, ......], 特征名k: [特殊值1...特殊值n]}
 
         Returns:
         -------
         self
         """
-        self.sp_vals_cols_disc = sp_vals_cols_disc
+        self.sp_vals_cols = sp_vals_cols
 
     def get_cols_type(self):
         """
@@ -276,7 +276,7 @@ class ScoreCardModel(object):
         Parameters:
         ----------
 
-        pipe_config:dict, {'sp_vals_cols_disc': {},
+        pipe_config:dict, {'sp_vals_cols': {},
                            'const_cols_ratio': 0.9,
                            'max_intervals': 5,
                            'min_pnt': 0.05,
@@ -302,11 +302,10 @@ class ScoreCardModel(object):
             elif config == 'idx_cols_disc_ord' and isinstance(pipe_config[config], dict):
                 self.add_cols_disc_ord(idx_cols_disc_ord=pipe_config[config])
 
-            elif config == 'sp_vals_cols_disc' and isinstance(pipe_config[config], dict):
-                self.add_disc_sp_vals(sp_vals_cols_disc=pipe_config[config])
+            elif config == 'sp_vals_cols' and isinstance(pipe_config[config], dict):
+                self.add_disc_sp_vals(sp_vals_cols=pipe_config[config])
 
             elif config == 'max_intervals' and isinstance(pipe_config[config], int):
-                print('asdasdasd:' + str(pipe_config[config]))
                 self.add_max_intervals(max_intervals=pipe_config[config])
 
         # 当前设定第一步检查Y标是否唯一的错误
@@ -320,6 +319,8 @@ class ScoreCardModel(object):
 
         # 当前设定第四步为获取特征的类型
         self.add_pinepine('Check_Cols_Types')
+
+        # 第五步开始卡方分箱
 
         # 开始遍历流程处理
         for proc in self.pinelines:

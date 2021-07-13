@@ -17,19 +17,18 @@ if __name__ == '__main__':
                                                                 '05': 5, '06': 6, '07': 7, '08': 8, '09': 9,
                                                                 '10': 10}},
     """
-    pipe_config = {'sp_vals_cols_disc': {},
-                           'const_cols_ratio': 0.9,
-                           'max_intervals': 5,
-                           'min_pnt': 0.05,
-                           'idx_cols_disc_ord': {'emp_length': {'00': 0, '01': 1, '02': 2, '03': 3, '04': 4,
-                                                                '05': 5, '06': 6, '07': 7, '08': 8, '09': 9,
-                                                                '10': 10}},
+    pipe_config = {'sp_vals_cols': {'sec_app_revol_util': [-1]},
+                   'const_cols_ratio': 0.9,
+                   'max_intervals': 5,
+                   'min_pnt': 0.05,
+                   'idx_cols_disc_ord': {'emp_length': {'00': 0, '01': 1, '02': 2, '03': 3, '04': 4,
+                                                        '05': 5, '06': 6, '07': 7, '08': 8, '09': 9,
+                                                        '10': 10}},
                           }
     scm_obj.model_pineline_proc(pipe_config=pipe_config)
 
-    print(scm_obj.sp_vals_cols_disc)
+    print(scm_obj.sp_vals_cols)
     print(scm_obj.const_cols_ratio, scm_obj.max_intervals, scm_obj.min_pnt)
-    print('ss' + str(scm_obj.max_intervals))
     print(scm_obj.idx_cols_disc_ord)
     print(scm_obj.cols_disc_ord)
     print(scm_obj.pinelines)
