@@ -1,13 +1,7 @@
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import statsmodels.api as sm
 import warnings
 from tqdm import tqdm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
-from sklearn.metrics import roc_curve, roc_auc_score
-from matplotlib.ticker import MultipleLocator
 from utils import chi2_cutting_discrete, chi2_cutting_continuous, value_to_intervals
 warnings.filterwarnings('ignore')
 

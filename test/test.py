@@ -1,6 +1,5 @@
 import pandas as pd
 from score_card_model.score_card_func import ScoreCardModel
-from utils import chi2_cutting_discrete, chi2_cutting_continuous, feat_bins_split
 
 if __name__ == '__main__':
     df_data = pd.read_excel("./test.xlsx")
