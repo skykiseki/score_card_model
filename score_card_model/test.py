@@ -3,7 +3,6 @@ from score_card_model.ScoreCardModel import ScoreCardModel
 
 if __name__ == '__main__':
     df_data = pd.read_excel("./test.xlsx")
-    df_data = df_data.drop('id', axis=1)
 
     scm_obj = ScoreCardModel(df=df_data, target='loan_status')
 

@@ -21,4 +21,23 @@ pip install score_card_model
 使用方法
 ====
 
+
+初始化:
+----
+
 代码示例:
+
+```python
+## 加载
+import pandas as pd
+from score_card_model.ScoreCardModel import ScoreCardModel
+
+# 读取数据
+df_data = pd.read_excel("./test.xlsx")
+
+# 创建和初始化类, 前提数据已经预处理完毕, 没有缺失值
+scm_obj = ScoreCardModel(df=df_data, target='loan_status')
+
+# 
+
+```
