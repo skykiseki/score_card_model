@@ -3,9 +3,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
+import warnings
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.metrics import roc_curve, roc_auc_score
 from matplotlib.ticker import MultipleLocator
+from utils import chi2_cutting_discrete, chi2_cutting_continuous
+warnings.filterwarnings('ignore')
+
 
 class ScoreCardModel(object):
     """
@@ -19,6 +23,8 @@ class ScoreCardModel(object):
     target: str, Y标特征
 
     cols_disc: list,离散型特征
+    sp_vals_cols_disc: dict, 某个特征下不参与分箱的特殊值,具体格式如下:
+                      {特征名1: [特殊值1...特殊值r], 特征名2: [特殊值1...特殊值o, ......], 特征名k: [特殊值1...特殊值n]}
 
     cols_disc_ord: list,有序离散型特征列表,
 
@@ -32,6 +38,7 @@ class ScoreCardModel(object):
     min_pnt: float, 特征单属性样本最小占比
 
     pipe_options: list, 分别有:
+    'Check_Target': 检查Y标
     'Check_None': 检查空值
     'Check_Const_Cols': 剔除常值特征
     'Check_Cols_Types': 获取字段类型
@@ -39,21 +46,17 @@ class ScoreCardModel(object):
     pinelines: list, 流水线处理列表
 
     const_cols_ratio: float, 常值字段的阈值%
-    const_cols: list
+    const_cols: list, 常值字段
 
     """
-    def __init__(self,
-                 df,
-                 target,
-                 const_cols_ratio,
-                 max_intervals=5,
-                 min_pnt=0.05):
+    def __init__(self, df, target):
         self.df = df
         self.df_res = None
 
         self.target = target
 
         self.cols_disc = []
+        self.sp_vals_cols_disc = {}
 
         self.cols_disc_ord = []
         self.idx_cols_disc_ord = {}
@@ -64,20 +67,59 @@ class ScoreCardModel(object):
 
         self.cols_cont = []
 
-        self.max_intervals = max_intervals
-        self.min_pnt = min_pnt
+        self.const_cols_ratio = 0.9
+        self.max_intervals = 5
+        self.min_pnt = 0.05
 
-        self.pipe_options = ['Check_Target', 'Check_None', 'Check_Const_Cols', 'Check_Cols_Types']
+        self.pipe_options = ['Check_Target', 'Check_None', 'Check_Const_Cols', 'Check_Cols_Types',
+                             'Chi2_Cutting']
         self.pinelines = []
 
-        self.const_cols_ratio = const_cols_ratio
         self.const_cols = []
 
-        # 当前设定第一步必须检查Y标是否唯一的错误
-        self.add_pinepine('Check_Target')
+    def add_min_pnt(self, min_pnt):
+        """
+        添加分箱的样本最小占比
 
-        # 当前设定第二步必须检查是否为非空
-        self.add_pinepine('Check_None')
+        Parameters:
+        ----------
+        min_pnt: float, 分箱的样本最小占比
+
+        Returns:
+        -------
+        self
+        """
+        self.max_intervals = min_pnt
+
+
+    def add_max_intervals(self, max_intervals):
+        """
+        添加分箱最大分箱数
+
+        Parameters:
+        ----------
+        max_intervals: int, 分箱的最大分箱数
+
+        Returns:
+        -------
+        self
+        """
+        self.max_intervals = max_intervals
+
+    def add_const_cols_ratio(self, const_cols_ratio):
+        """
+
+        添加特征常值占比
+
+        Parameters:
+        ----------
+        const_cols_ratio:
+
+        Returns:
+        -------
+        self
+        """
+        self.const_cols_ratio = const_cols_ratio
 
     def add_cols_disc_ord(self, idx_cols_disc_ord):
         """
@@ -101,6 +143,21 @@ class ScoreCardModel(object):
             for k in idx_cols_disc_ord:
                 self.cols_disc_ord.append(k)
                 self.idx_cols_disc_ord = idx_cols_disc_ord
+
+    def add_disc_sp_vals(self, sp_vals_cols_disc):
+        """
+        添加离散型特征的特殊值
+
+        Paramters:
+        ---------
+        sp_vals_cols_disc: dict, 某个特征下不参与分箱的特殊值,具体格式如下:
+                      {特征名1: [特殊值1...特殊值r], 特征名2: [特殊值1...特殊值o, ......], 特征名k: [特殊值1...特殊值n]}
+
+        Returns:
+        -------
+        self
+        """
+        self.sp_vals_cols_disc = sp_vals_cols_disc
 
     def get_cols_type(self):
         """
@@ -181,6 +238,17 @@ class ScoreCardModel(object):
 
         self.df = self.df.drop(self.const_cols, axis=1)
 
+    def chi2_cutting(self):
+        chi2_cutting_discrete(df_data=self.df,
+                              feat_list=self.cols_disc_disord_less + self.cols_disc_ord,
+                              target=self.target,
+                              special_feat_val={},
+                              max_intervals=self.max_intervals,
+                              min_pnt=self.min_pnt,
+                              discrete_order=self.idx_cols_disc_ord,
+                              mono_expect={'emp_length': {'shape': 'mono', 'u': False}})
+
+
     def add_pinepine(self, pipe_name):
         """
         向流水线列表中添加流程名称
@@ -201,16 +269,62 @@ class ScoreCardModel(object):
             print('Back pipeline option.')
             raise TypeError
 
-    def model_pineline_proc(self):
+    def model_pineline_proc(self, pipe_config=None):
         """
         对设定的流水线过程进行逐步操作
 
+        Parameters:
+        ----------
+
+        pipe_config:dict, {'sp_vals_cols_disc': {},
+                           'const_cols_ratio': 0.9,
+                           'max_intervals': 5,
+                           'min_pnt': 0.05,
+                           'idx_cols_disc_ord': {'emp_length': {'00': 0, '01': 1, '02': 2, '03': 3, '04': 4,
+                                                                '05': 5, '06': 6, '07': 7, '08': 8, '09': 9,
+                                                                '10': 10}},
+                          }
 
         """
+        if pipe_config is None:
+            pipe_config = {}
+
         self.df_res = self.df.copy()
 
+        # 处理输入参数
+        for config in pipe_config.keys():
+            if config == 'const_cols_ratio' and 0 < pipe_config[config] < 1:
+                self.add_const_cols_ratio(const_cols_ratio=pipe_config[config])
+
+            elif config == 'min_pnt' and 0 < pipe_config[config] < 1:
+                self.add_min_pnt(min_pnt=pipe_config[config])
+
+            elif config == 'idx_cols_disc_ord' and isinstance(pipe_config[config], dict):
+                self.add_cols_disc_ord(idx_cols_disc_ord=pipe_config[config])
+
+            elif config == 'sp_vals_cols_disc' and isinstance(pipe_config[config], dict):
+                self.add_disc_sp_vals(sp_vals_cols_disc=pipe_config[config])
+
+            elif config == 'max_intervals' and isinstance(pipe_config[config], int):
+                print('asdasdasd:' + str(pipe_config[config]))
+                self.add_max_intervals(max_intervals=pipe_config[config])
+
+        # 当前设定第一步检查Y标是否唯一的错误
+        self.add_pinepine('Check_Target')
+
+        # 当前设定第二步检查是否为非空
+        self.add_pinepine('Check_None')
+
+        # 当前设定第三步检查常值特征
+        self.add_pinepine('Check_Const_Cols')
+
+        # 当前设定第四步为获取特征的类型
+        self.add_pinepine('Check_Cols_Types')
+
+        # 开始遍历流程处理
         for proc in self.pinelines:
             proc_name = proc[1]
+
             if proc_name == 'Check_Target':
                 self.check_target()
             elif proc_name == 'Check_None':

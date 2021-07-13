@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
+import warnings
 from tqdm import tqdm
+warnings.filterwarnings('ignore')
 
 def bin_badrate(df, col_name, target):
     """
@@ -536,7 +538,6 @@ def feat_bins_split(df, featname, init_bins=100):
     """
     dict_vals_to_bins = {}
     # 先取出分割的刻度
-    print(featname)
     list_unique_vals_order = init_split(df, featname=featname, init_bins=init_bins)
     # 计算刻度的个数, 最终箱子数为刻度数 + 1
     cnt_unique_vals = len(list_unique_vals_order)
@@ -772,8 +773,7 @@ def chi2_cutting_discrete(df_data, feat_list, target,
     dict_discrete_woe = {}
 
     # 开始遍历
-    for feat in feat_list:
-        print(feat)
+    for feat in tqdm(feat_list, desc="Cutting discrete features"):
         # 参数初始化
         intervals = max_intervals
         # 初始化dataframe
@@ -833,10 +833,8 @@ def chi2_cutting_discrete(df_data, feat_list, target,
         # 初始化regroup_badrate
         regroup_badrate = bin_badrate(df, col_name=feat + '_badrate', target=target)
 
-        print(regroup_badrate)
         # 判断是否存在bad_rate =1 或者 bad_rate=0的情况
         while regroup_badrate['bad_rate'].min() == 0 or regroup_badrate['bad_rate'].max() == 1:
-            print(regroup_badrate)
             # 如果是有序的特征,排序后找出badrate为0或者badrate为1的分组
             # 如果是无序的特征,同上,但注意这个时候是用badrate进行排序
             if feat in discrete_order.keys():
@@ -868,7 +866,6 @@ def chi2_cutting_discrete(df_data, feat_list, target,
         # 增加pnt_feat_vals字段, 注意分母是总体样本值, 前面如果出现特殊值, 则需要加回来
         regroup_min_pnt['pnt_feat_vals'] = regroup_min_pnt['num_feat_vals'] / row_num
 
-        print(4)
         # 开始处理分组样本数小于阈值的情况
         while regroup_min_pnt['pnt_feat_vals'].min() < min_pnt:
             # 注意区分有序和无序特征
@@ -897,7 +894,6 @@ def chi2_cutting_discrete(df_data, feat_list, target,
         df[feat + '_mono'] = df[feat + '_min_pnt']
         regroup_mono = bin_badrate(df, col_name=feat + '_mono', target=target)
 
-        print(5)
         # 仅对有序离散特征进行检查单调性
         if feat in mono_expect.keys():
             # 若存在特征列入单调检查, 但是不属于有序特征, 需要报错
@@ -927,7 +923,6 @@ def chi2_cutting_discrete(df_data, feat_list, target,
         # 初始化特殊值的regroup_woe_iv
         regroup_woe_iv = regroup_mono.copy()
 
-        print(16)
         # 对特殊值进行处理
         if feat in special_feat_val.keys() and len(special_feat_val[feat]) > 0:
             # 先更新取值字典
@@ -1034,8 +1029,7 @@ def chi2_cutting_continuous(df_data, feat_list, target,
     dict_contin_woe = {}
 
     # 开始处理
-    for feat in feat_list:
-        print(feat)
+    for feat in tqdm(feat_list, desc="Cutting continuous features"):
         # 参数初始化, 和离散型不同, 这里不需要feat_valToBins
         intervals = max_intervals
         df = df_data.loc[:, [feat, target]]
