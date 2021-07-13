@@ -552,7 +552,7 @@ class ScoreCardModel(object):
 
 
 
-    def filter_df_woe_vif(self, df_woe, vif_thres):
+    def filter_df_woe_vif(self, df_woe, vif_thres=10):
         """
         基于statsmodels.stats.outliers_influence.variance_inflation_factor进行vif分析
         对于共线性问题,可以使用逐一剔除的方法,即先遍历全部特征,尝试去剔除一个特征, 再去统计剔除后的vif是否小于阈值
@@ -580,7 +580,9 @@ class ScoreCardModel(object):
         # 特征名
         list_featnames = list(df.columns)
         # df转化为矩阵
-        mat_vif = df.as_matrix()
+        ## pandas 1.0.0开始剔除as_matrix
+        # mat_vif = df.as_matrix()
+        mat_vif = df.values
         # 初始化计算dict_feats_iv_vif & list_feats_h_vif
         for i in range(len(list_featnames)):
             # 获取特征名
