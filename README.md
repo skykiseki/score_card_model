@@ -97,7 +97,7 @@ dict_woe = scm_obj.dict_woe
 # 获取woe转化后的dataframe
 df_woe = scm_obj.df_woe
 
-# 一下筛选过程顺序可以随意安排, 也非必须调用的内容
+# 以下筛选过程顺序可以随意安排, 也非必须调用的内容
 
 ## 基于iv进行特征筛选
 cols_iv_lower = scm_obj.filter_df_woe_iv(df_woe=df_woe, iv_thres=0.02)
