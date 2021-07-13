@@ -56,6 +56,8 @@ if __name__ == '__main__':
     print(scm_obj.dict_cont_iv)
     print(scm_obj.dict_cont_woe)
 
+    scm_obj.trans_df_to_woe().to_excel('./woe.xlsx', index=False)
+
 
 
 

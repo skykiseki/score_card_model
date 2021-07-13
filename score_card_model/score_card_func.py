@@ -348,6 +348,7 @@ class ScoreCardModel(object):
     def trans_df_to_woe(self):
         """
         对样本进行woe转化
+        (考虑到整个链路耦合太厉害容易报错, 所以woe转化之后的步骤都单独分离出来)
 
         Parameters:
         ----------
@@ -355,9 +356,9 @@ class ScoreCardModel(object):
 
         Returns:
         -------
-        self
+        df_woe: woe转化后的dataframe
         """
-        df_woe = self.copy()
+        df_woe = self.df.copy()
 
         for col in tqdm(df_woe.columns, desc='Woe Transforming'):
             # 遍历处理特征, 注意排除target
@@ -375,6 +376,8 @@ class ScoreCardModel(object):
                 df_woe[col] = df_woe[col].apply(lambda x: value_to_intervals(value=x, dict_valstoinv=dict_col_to_bins))
 
             df_woe[col] = df_woe[col].map(dict_col_to_bins).map(dict_bins_to_woe)
+
+        return df_woe
 
 
 
