@@ -1,8 +1,8 @@
 import statsmodels.api as sm
 import warnings
+import utils
 from tqdm import tqdm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
-from utils import chi2_cutting_discrete, chi2_cutting_continuous, value_to_intervals
 warnings.filterwarnings('ignore')
 
 
@@ -297,14 +297,14 @@ class ScoreCardModel(object):
         disc_mono_expect = {k:v for k,v in self.mono_expect.items() if k in self.disc_cols_cut}
 
         ## 开始分箱
-        self.dict_disc_cols_to_bins, self.dict_disc_iv, self.dict_disc_woe = chi2_cutting_discrete(df_data=self.df,
-                                                                                                   feat_list=self.disc_cols_cut,
-                                                                                                   target=self.target,
-                                                                                                   special_feat_val=disc_special_cols_vals,
-                                                                                                   max_intervals=self.max_intervals,
-                                                                                                   min_pnt=self.min_pnt,
-                                                                                                   discrete_order=self.idx_cols_disc_ord,
-                                                                                                   mono_expect=disc_mono_expect)
+        self.dict_disc_cols_to_bins, self.dict_disc_iv, self.dict_disc_woe = utils.chi2_cutting_discrete(df_data=self.df,
+                                                                                                         feat_list=self.disc_cols_cut,
+                                                                                                         target=self.target,
+                                                                                                         special_feat_val=disc_special_cols_vals,
+                                                                                                         max_intervals=self.max_intervals,
+                                                                                                         min_pnt=self.min_pnt,
+                                                                                                         discrete_order=self.idx_cols_disc_ord,
+                                                                                                         mono_expect=disc_mono_expect)
 
 
         # 开始处理无序分箱多离散特征 & 连续特征
@@ -317,14 +317,14 @@ class ScoreCardModel(object):
         cont_mono_expect = {k:v for k,v in self.mono_expect.items() if k in self.cont_cols_cut}
 
         ## 开始分箱
-        self.dict_cont_cols_to_bins, self.dict_cont_iv, self.dict_cont_woe = chi2_cutting_continuous(df_data=self.df,
-                                                                                                     feat_list=self.cont_cols_cut,
-                                                                                                     target=self.target,
-                                                                                                     discrete_more_feats=self.cols_disc_disord_more,
-                                                                                                     special_feat_val=cont_special_cols_vals,
-                                                                                                     max_intervals=self.max_intervals,
-                                                                                                     min_pnt=self.min_pnt,
-                                                                                                     mono_expect=cont_mono_expect)
+        self.dict_cont_cols_to_bins, self.dict_cont_iv, self.dict_cont_woe = utils.chi2_cutting_continuous(df_data=self.df,
+                                                                                                           feat_list=self.cont_cols_cut,
+                                                                                                           target=self.target,
+                                                                                                           discrete_more_feats=self.cols_disc_disord_more,
+                                                                                                           special_feat_val=cont_special_cols_vals,
+                                                                                                           max_intervals=self.max_intervals,
+                                                                                                           min_pnt=self.min_pnt,
+                                                                                                           mono_expect=cont_mono_expect)
 
         # 分组取值
         self.dict_cols_to_bins.update(self.dict_disc_cols_to_bins)
@@ -365,7 +365,7 @@ class ScoreCardModel(object):
             # 开始转化特征
             # 离散型直接转化, 连续型则需要做个转化
             if col in self.cols_cont:
-                df_woe[col] = df_woe[col].apply(lambda x: value_to_intervals(value=x, dict_valstoinv=dict_col_to_bins))
+                df_woe[col] = df_woe[col].apply(lambda x: utils.value_to_intervals(value=x, dict_valstoinv=dict_col_to_bins))
 
             df_woe[col] = df_woe[col].map(dict_col_to_bins).map(dict_bins_to_woe)
 
