@@ -492,13 +492,16 @@ class ScoreCardModel(object):
 
         """
         cols_filter = set()
-        for col in df_woe.columns:
-            if col != self.target:
-                # 先获取特征的iv值
-                iv_col = self.dict_iv[col]
-                # 是否小于阈值
-                if iv_col < iv_thres:
-                    cols_filter.add(col)
+
+        # 剔除target
+        df = df_woe.drop(self.target, axis=1)
+
+        for col in df.columns:
+            # 先获取特征的iv值
+            iv_col = self.dict_iv[col]
+            # 是否小于阈值
+            if iv_col < iv_thres:
+                cols_filter.add(col)
 
         return cols_filter
 
@@ -521,9 +524,12 @@ class ScoreCardModel(object):
         cols_filter = set()
         dict_feat_corr = {}
 
+        # 剔除target
+        df = df_woe.drop(self.target, axis=1)
+
         # 计算相关系数, 记得剔除feat本身组合
         # 注意这里含(A, B) 和(B, A）的重复组合
-        corr_feat = df_woe.drop(self.target, axis=1).corr()
+        corr_feat = df.corr()
 
         for col in corr_feat.columns:
             for idx in corr_feat.index:
@@ -548,9 +554,90 @@ class ScoreCardModel(object):
 
     def filter_df_woe_vif(self, df_woe, vif_thres):
         """
+        基于statsmodels.stats.outliers_influence.variance_inflation_factor进行vif分析
+        对于共线性问题,可以使用逐一剔除的方法,即先遍历全部特征,尝试去剔除一个特征, 再去统计剔除后的vif是否小于阈值
+        如果小于阈值, 则说明剔除该特征有效
+        如果存在有多个特征可以进行剔除, 则剔除IV较小的那个特征
+        如果遍历了之后,无法找到一个适合的特征进行剔除,则将最小IV的特征进行剔除, 保留高IV特征
 
-        :param df_woe:
-        :param vif_thres:
-        :return:
+        Parameters:
+        ----------
+        df_woe: dataframe, 输入的训练集(含target)
+        vif_thres: float, vif系数阈值
+
+
+        Returns:
+        -------
+        cols_filter: set, 返回需要剔除的特征集合
+
         """
-        pass 
+        cols_filter = set()
+
+
+        # list记录vif大于阈值的特征名称
+        list_feats_h_vif = []
+        # copy
+        df = df_woe.drop(self.target, axis=1)
+        # 特征名
+        list_featnames = list(df.columns)
+        # df转化为矩阵
+        mat_vif = df.as_matrix()
+        # 初始化计算dict_feats_iv_vif & list_feats_h_vif
+        for i in range(len(list_featnames)):
+            # 获取特征名
+            featname = list_featnames[i]
+            # 获取特征对应的vif
+            feat_vif = variance_inflation_factor(mat_vif, i)
+            # 如果vif大于阈值, 则写入这个特征
+            if feat_vif >= vif_thres:
+                list_feats_h_vif.append(featname)
+
+        # 如果list_feats_h_vif有值, 即存在vif>10的情况, 则进入循环
+        while len(list_feats_h_vif) > 0:
+            # 先重置list_feats_h_vif
+            list_feats_h_vif = []
+            # dict记录可以剔除的候选特征以及其IV
+            dict_feats_candi = {}
+            # 基于IV对特征进行排序
+            dict_feativ_order = {k: v for k, v in sorted(self.dict_iv.items(), key=lambda x: x[1]) if
+                                 k in list_featnames}
+            # 开始遍历每个特征
+            for feat in dict_feativ_order.keys():
+                # 剔除这个特征
+                df0 = df.drop(feat, axis=1)
+                # 重新计算vif
+                mat_df0 = df0.as_matrix()
+                list_vif = [variance_inflation_factor(mat_df0, i) for i in range(df0.shape[1])]
+                # 如果list_vif中不存在大于阈值vif的情况, 则表示剔除这个特征有效解决共线性
+                if max(list_vif) < vif_thres:
+                    # 找出该特征的iv
+                    iv_feat_candi = dict_feativ_order[feat]
+                    # 插入候选字典
+                    dict_feats_candi[feat] = iv_feat_candi
+
+            # 取得候选中最小iv的特征
+            # 如果遍历了全部特征仍没有办法排除共线性, 则剔除最小iv的特征
+            if len(dict_feats_candi.keys()) > 0:
+                feat_candi_miniv = min(dict_feats_candi, key=dict_feats_candi.get)
+            else:
+                feat_candi_miniv = min(dict_feativ_order, key=dict_feativ_order.get)
+
+            # 插入返回的set中
+            cols_filter.add(feat_candi_miniv)
+            # 剔除该特征
+            df = df.drop(feat_candi_miniv, axis=1)
+            mat_vif = df.as_matrix()
+
+            # 重新计算
+            list_featnames = list(df.columns)
+            for i in range(len(list_featnames)):
+                # 获取特征名
+                featname = list_featnames[i]
+                # 获取特征对应的vif
+                feat_vif = variance_inflation_factor(mat_vif, i)
+                # 如果vif大于阈值, 则写入这个特征
+                if feat_vif >= vif_thres:
+                    list_feats_h_vif.append(featname)
+
+        return cols_filter
+
