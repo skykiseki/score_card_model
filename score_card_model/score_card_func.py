@@ -479,27 +479,78 @@ class ScoreCardModel(object):
         """
         选出基于iv阈值需要踢出的特征名
 
+        经验而言，iv<=0.02:认为其没有预测性;0.02<iv<=0.1,弱预测性;0.1<iv<=0.2,有一定预测性;iv>0.2,强预测性
+        PS:如果一个特征的IV特别高, 这个时候必须要注意检查一下了
+
         Parameters:
         ----------
+        df_woe: dataframe, 输入的训练集(含target)
         iv_thres: float, 最小的IV阈值
 
         Returns:
-        cols_filter: list, 小于IV阈值的特征列表
+        cols_filter: set, 小于IV阈值的特征集合
 
         """
-        cols_filter = []
+        cols_filter = set()
         for col in df_woe.columns:
-            if col != self.target
+            if col != self.target:
                 # 先获取特征的iv值
                 iv_col = self.dict_iv[col]
                 # 是否小于阈值
                 if iv_col < iv_thres:
-                    cols_filter.append(col)
+                    cols_filter.add(col)
 
         return cols_filter
 
 
-    def filter_df_woe_corr(self, corr_thres=0.7):
-        pass
+    def filter_df_woe_corr(self, df_woe, corr_thres=0.7):
+        """
+        基于两个特征的斯皮尔逊相关系数进行剔除
+        若两个特征之间的相关系数大于阈值(默认为0.7), 则剔除IV较低的那个
 
-    def filter_
+        Parameters:
+        ----------
+        df_woe: dataframe, 输入的训练集(含target)
+        corr_thres: float, 相关系数阈值
+
+        Returns:
+        -------
+        cols_filter: set, 返回需要剔除的特征集合
+
+        """
+        cols_filter = set()
+        dict_feat_corr = {}
+
+        # 计算相关系数, 记得剔除feat本身组合
+        # 注意这里含(A, B) 和(B, A）的重复组合
+        corr_feat = df_woe.drop(self.target, axis=1).corr()
+
+        for col in corr_feat.columns:
+            for idx in corr_feat.index:
+                if col != idx:
+                    dict_feat_corr[(idx, col)] = corr_feat.loc[idx, col]
+
+        # 找出大于等于相关系数阈值的组合
+        # 通过比较两者的IV插入list
+        for key, val in dict_feat_corr.items():
+            if abs(val) >= corr_thres:
+                iv_feat_0 = self.dict_iv[key[0]]
+                iv_feat_1 = self.dict_iv[key[1]]
+                # 插入IV较小的值
+                if iv_feat_0 <= iv_feat_1:
+                    cols_filter.add(key[0])
+                else:
+                    cols_filter.add(key[1])
+
+        return cols_filter
+
+
+
+    def filter_df_woe_vif(self, df_woe, vif_thres):
+        """
+
+        :param df_woe:
+        :param vif_thres:
+        :return:
+        """
+        pass 
