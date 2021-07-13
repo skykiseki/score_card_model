@@ -1,5 +1,5 @@
 import pandas as pd
-from score_card_model.score_card_func import ScoreCardModel
+from score_card_model.ScoreCardModel import ScoreCardModel
 
 if __name__ == '__main__':
     df_data = pd.read_excel("./test.xlsx")
