@@ -46,7 +46,6 @@ class ScoreCardModel(object):
                  df,
                  target,
                  const_cols_ratio,
-                 cols_disc_ord=[],
                  max_intervals=5,
                  min_pnt=0.05):
         self.df = df
@@ -56,7 +55,9 @@ class ScoreCardModel(object):
 
         self.cols_disc = []
 
-        self.cols_disc_ord = cols_disc_ord
+        self.cols_disc_ord = []
+        self.idx_cols_disc_ord = {}
+
         self.cols_disc_disord = []
         self.cols_disc_disord_less = []
         self.cols_disc_disord_more = []
@@ -74,6 +75,31 @@ class ScoreCardModel(object):
 
         # 当前设定第一步必须检查是否为非空
         self.add_pinepine('Check_None')
+
+    def add_cols_disc_ord(self, idx_cols_disc_ord):
+        """
+
+        添加有序特征, 含其排序
+
+        Parameters:
+        ----------
+        discrete_order: dict
+
+        e.g.
+        discrete_order = {'emp_length': {'00': 0, '01': 1, '02': 2, '03': 3,
+                                         '04': 4, '05': 5, '06': 6, '07': 7,
+                                         '08': 8, '09': 9, '10': 10}}
+
+        Returns:
+        -------
+        self
+        """
+        if len(idx_cols_disc_ord) > 0:
+            for k in idx_cols_disc_ord:
+                self.cols_disc_ord.append(k)
+                self.idx_cols_disc_ord = idx_cols_disc_ord
+
+
 
     def get_cols_type(self):
         """
