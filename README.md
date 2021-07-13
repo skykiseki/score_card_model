@@ -72,7 +72,6 @@ pipe_config = {'sp_vals_cols': {'id': [-1],
 代码示例:
 
 ```python
-# 
 scm_obj.model_pineline_proc(pipe_config=pipe_config)
 
 ```
