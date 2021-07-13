@@ -71,7 +71,10 @@ class ScoreCardModel(object):
         self.max_intervals = 5
         self.min_pnt = 0.05
 
+        self.mono_expect = None
+
         self.pipe_options = ['Check_Target', 'Check_None', 'Check_Const_Cols', 'Check_Cols_Types',
+                             'Add_Mono_Expect',
                              'Chi2_Cutting']
         self.pinelines = []
 
@@ -193,6 +196,25 @@ class ScoreCardModel(object):
                     ## 其余的是连续型
                     self.cols_cont.append(col)
 
+    def add_mono_expect(self):
+        """
+        对有序离散型、连续性特征进行单调性参数整理
+
+        PS: 当前只做单调增或者单调减, U型和倒U暂时不支持(虽然功能我已经开发了)
+
+        Parameters:
+        ----------
+        self
+
+        Returns:
+        -------
+        self
+        """
+        list_cols = self.cols_disc_ord + self.cols_cont
+
+        self.mono_expect = {col:{'shape': 'mono', 'u': False} for col in list_cols}
+
+
     def check_target(self):
         """
         简单检查一下Y标的分布是否正确
@@ -239,10 +261,12 @@ class ScoreCardModel(object):
         self.df = self.df.drop(self.const_cols, axis=1)
 
     def chi2_cutting(self):
+        feat_list = self.cols_disc_disord_less + self.cols_disc_ord
+        disc_special_feat_vals = {k:v for k,v in self.sp_vals_cols.items() if k in feat_list}
         chi2_cutting_discrete(df_data=self.df,
-                              feat_list=self.cols_disc_disord_less + self.cols_disc_ord,
+                              feat_list=feat_list,
                               target=self.target,
-                              special_feat_val={},
+                              special_feat_val=disc_special_feat_vals,
                               max_intervals=self.max_intervals,
                               min_pnt=self.min_pnt,
                               discrete_order=self.idx_cols_disc_ord,
@@ -320,6 +344,9 @@ class ScoreCardModel(object):
         # 当前设定第四步为获取特征的类型
         self.add_pinepine('Check_Cols_Types')
 
+        # 当前设定第五步为处理特征的单调性要求
+        self.add_pinepine('Add_Mono_Expect')
+
         # 第五步开始卡方分箱
 
         # 开始遍历流程处理
@@ -334,3 +361,5 @@ class ScoreCardModel(object):
                 self.get_const_cols()
             elif proc_name == 'Check_Cols_Types':
                 self.get_cols_type()
+            elif proc_name == 'Add_Mono_Expect':
+                self.add_mono_expect()

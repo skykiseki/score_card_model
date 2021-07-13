@@ -9,7 +9,7 @@ if __name__ == '__main__':
     scm_obj = ScoreCardModel(df=df_data, target='loan_status')
 
     """
-    'sp_vals_cols_disc': {},
+    'sp_vals_cols_disc': {{'sec_app_revol_util': [-1]},
                            'const_cols_ratio': 0.9,
                            'max_intervals': 5,
                            'min_pnt': 0.05,
@@ -33,6 +33,8 @@ if __name__ == '__main__':
     print(scm_obj.cols_disc_ord)
     print(scm_obj.pinelines)
     print(scm_obj.df.shape)
+
+    print(scm_obj.mono_expect)
 
     # a, b, c = chi2_cutting_discrete(df_data=scm_obj.df,
     #                                 feat_list=scm_obj.cols_disc_disord_less + scm_obj.cols_disc_ord,
