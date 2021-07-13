@@ -565,7 +565,6 @@ class ScoreCardModel(object):
         df_woe: dataframe, 输入的训练集(含target)
         vif_thres: float, vif系数阈值
 
-
         Returns:
         -------
         cols_filter: set, 返回需要剔除的特征集合
@@ -638,6 +637,61 @@ class ScoreCardModel(object):
                 # 如果vif大于阈值, 则写入这个特征
                 if feat_vif >= vif_thres:
                     list_feats_h_vif.append(featname)
+
+        return cols_filter
+
+    def filter_df_woe_pvalue(self, df_woe, pval_thres=0.05):
+        """
+        对回归模型系数进行显著性检验
+        类似vif的处理方法逐步回归,先按p_value最高的特征进行剔除,再进行回归,直到所有的系数显著
+
+        Parameters:
+        ----------
+        df_woe: dataframe, 输入的训练集(含target)
+        pval_thres: float, p_value阈值
+
+        Returns:
+        -------
+        cols_filter: set, 返回需要剔除的特征集合
+
+        """
+        cols_filter = set()
+
+        # copy
+        df = df_woe.copy()
+
+        # 初始建模, 注意加入常数项
+        df['intercept'] = [1] * df.shape[0]
+        x = df.drop(self.target, axis=1)
+        y = df[self.target]
+        model = sm.Logit(y, x)
+        results = model.fit()
+
+        # 初始化对应的pvalue字典
+        dict_feats_pvalue = results.pvalues.to_dict()
+        # 注意要删除截距项
+        del dict_feats_pvalue['intercept']
+
+        # 如果存在不显著的系数
+        while max(dict_feats_pvalue.values()) > pval_thres:
+            # 取得最不显著的特征
+            feat_max_pval = max(dict_feats_pvalue, key=dict_feats_pvalue.get)
+            # 插入待删除列表
+            cols_filter.add(feat_max_pval)
+            # 剔除该特征
+            df0 = df.drop(feat_max_pval, axis=1)
+            # 重新建模
+            df0['intercept'] = [1] * df0.shape[0]
+            x = df0.drop(self.target, axis=1)
+            y = df0[self.target]
+            model = sm.Logit(y, x)
+            results = model.fit()
+            # 重置赋值dict_feats_pvalue
+            dict_feats_pvalue = results.pvalues.to_dict()
+            # 删除截距项
+            del dict_feats_pvalue['intercept']
+            # df剔除该特征
+            df = df.drop(feat_max_pval, axis=1)
 
         return cols_filter
 
