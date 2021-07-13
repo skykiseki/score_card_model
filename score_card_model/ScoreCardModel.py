@@ -1,6 +1,6 @@
 import statsmodels.api as sm
 import warnings
-import utils
+from . import utils
 from tqdm import tqdm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 warnings.filterwarnings('ignore')
