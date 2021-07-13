@@ -337,9 +337,13 @@ class ScoreCardModel(object):
         self.dict_cols_to_bins.update(self.dict_disc_cols_to_bins)
         self.dict_cols_to_bins.update(self.dict_cont_cols_to_bins)
 
-        # Woe系数
+        # woe
+        self.dict_woe.update(self.dict_disc_woe)
+        self.dict_woe.update(self.dict_cont_woe)
 
-        # 特征iv
+        # iv
+        self.dict_iv.update(self.dict_disc_iv)
+        self.dict_iv.update(self.dict_cont_iv)
 
     def trans_df_to_woe(self):
         """
