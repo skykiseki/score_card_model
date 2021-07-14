@@ -22,7 +22,7 @@ score_card_model
 GitHub: https://github.com/skykiseki/score_card_model
 """
 
-setup(name='score_card_model',
+setup(name='score-card-model',
       version='1.3.1',
       description='Risk Score Card Model',
       long_description=LONGDOC,
