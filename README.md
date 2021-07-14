@@ -15,7 +15,7 @@ score_card_model
 ======
 
 ```shell
-pip install score_card_model
+pip install score-card-model
 ```
 
 使用方法
