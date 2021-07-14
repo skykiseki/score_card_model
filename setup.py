@@ -23,7 +23,7 @@ GitHub: https://github.com/skykiseki/score_card_model
 """
 
 setup(name='score_card_model',
-      version='1.3.0',
+      version='1.3.1',
       description='Risk Score Card Model',
       long_description=LONGDOC,
       long_description_content_type="text/markdown",
@@ -50,7 +50,7 @@ setup(name='score_card_model',
         'pandas',
         'numpy',
         'scikit-learn',
-        'statsmodels',
+        'statsmodels>=0.12.2',
         'matplotlib',
         'seaborn',
         'tqdm'
