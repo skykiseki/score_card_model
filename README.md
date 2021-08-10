@@ -106,7 +106,8 @@ df_woe = df_woe.drop(cols_pval_higher, axis=1)
 
 ```
 
-5.特征筛选
+5.特征筛选:
+--------
 ```python
 # 以下筛选过程顺序可以随意安排, 也非必须调用的内容
 ## 基于iv进行特征筛选
