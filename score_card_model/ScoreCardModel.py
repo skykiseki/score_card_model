@@ -745,7 +745,7 @@ class ScoreCardModel(object):
             raise Exception('未设置入模特征.')
 
     @ staticmethod
-    def proba_to_score(self, proba, base_score=500, pdo=20):
+    def proba_to_score(proba, base_score=500, pdo=20):
         """
         概率转化为分数
 
@@ -803,7 +803,7 @@ class ScoreCardModel(object):
         probas = [p[1] for p in estimator.predict_proba(df)]
 
         # 计算分数
-        scores = [self.proba_to_score(p, base_score=base_score, pdo=pdo) for p in probas]
+        scores = [self.proba_to_score(proba=p, base_score=base_score, pdo=pdo) for p in probas]
 
         return scores
 
