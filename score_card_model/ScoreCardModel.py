@@ -374,8 +374,6 @@ class ScoreCardModel(object):
 
             df_woe[col] = df_woe[col].map(dict_col_to_bins).map(dict_bins_to_woe)
 
-        self.df_woe = df_woe
-
         return df_woe
 
     def add_pinepine(self, pipe_name):
@@ -474,7 +472,7 @@ class ScoreCardModel(object):
             elif proc_name == 'Chi2_Cutting':
                 self.chi2_cutting()
             elif proc_name == 'Woe_Transform':
-                self.trans_df_to_woe()
+                self.df_woe = self.trans_df_to_woe(df=self.df)
 
     def filter_df_woe_iv(self, df_woe, iv_thres=0.01):
         """
@@ -771,13 +769,13 @@ class ScoreCardModel(object):
 
         return score
 
-    def get_df_scores(self, df, estimator, base_score=500, pdo=20):
+    def get_df_scores(self, df_woe, estimator, base_score=500, pdo=20):
         """
         基于入模特征计算dataframe的分数
 
         Parameters:
         ----------
-        df: dataframe,训练集, 注意列必须包含所有的入模特征
+        df_woe: dataframe,训练集, 注意列必须包含所有的入模特征, 且默认经过了woe编码了
 
         estimator: model,模型对象,必须包含predict_proba
 
@@ -795,11 +793,11 @@ class ScoreCardModel(object):
         self._check_if_has_md_feats()
 
         # 再检查df是否含有所有的入模特征
-        if not all([col in df.columns for col in self.md_feats]):
+        if not all([col in df_woe.columns for col in self.md_feats]):
             raise Exception('输入的dataframe没有包含所有入模特征.')
 
         # 选择入模特征
-        df = df.loc[:, self.md_feats]
+        df = df_woe.loc[:, self.md_feats]
 
         # 计算proba
         probas = [p[1] for p in estimator.predict_proba(df)]
