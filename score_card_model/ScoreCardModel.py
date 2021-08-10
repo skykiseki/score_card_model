@@ -59,6 +59,8 @@ class ScoreCardModel(object):
     self.dict_iv: dict, 所有特征的IV
     self.dict_woe: dict, 所有特征的woe值
 
+    self.md_feats: list, 入模特征
+
     """
     def __init__(self, df, target):
         self.df = df
@@ -104,6 +106,8 @@ class ScoreCardModel(object):
         self.dict_cols_to_bins = {}
         self.dict_iv = {}
         self.dict_woe = {}
+
+        self.md_feats = None
 
     def add_min_pnt(self, min_pnt):
         """
@@ -690,4 +694,25 @@ class ScoreCardModel(object):
             df = df.drop(feat_max_pval, axis=1)
 
         return cols_filter
+
+    def set_md_features(self, md_feats):
+        """
+
+        设置入模特征
+
+        Parameters:
+        ----------
+        md_feats: list, 入模特征列表
+
+        Returns:
+        -------
+        self
+
+        """
+        if len(md_feats) > 0:
+            self.md_feats = md_feats
+            print('设置入模特征{0}个.'.format(len(md_feats)))
+        else:
+            raise Exception('设置的入模特征个数必须大于0')
+
 
