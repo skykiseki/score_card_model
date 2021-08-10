@@ -1488,3 +1488,101 @@ def model_gini(y_true, y_proba, is_plot=False, dict_plot_params=None):
     return gini
 
 
+def model_psi(score_train, score_test, n_split=10):
+    """
+
+    计算模型稳定性PSI
+    基于分数进行n_split等分, 再计算PSI
+    PSI的公式为PSI=sum((actual_pnt - expected_pnt) *  ln(actual_pnt / expected_pnt))
+    psi的经验值,psi < 0.1:稳定性高，无需更新模型;
+    # 0.1 <= psi <0.25:稳定性一般,需要进一步研究;psi >= 0.25:稳定性差,需要更新模型
+
+    Parameters:
+    ----------
+    score_train: list, 训练集的分数分布(训练集的样本数和测试集是不一定相等的！！！)
+
+    score_test: list, 测试集的分数分布(训练集的样本数和测试集是不一定相等的！！！)
+
+    Returns:
+    -------
+    psi: float, psi index
+
+    """
+    # score分组dict
+    dict_score_interval = {}
+
+    # 构建df
+    df_train = pd.DataFrame({'score': score_train})
+    df_test = pd.DataFrame({'score': score_test})
+
+    # 计算各数据集的样本数
+    cnt_train = df_train.shape[0]
+    cnt_test = df_test.shape[0]
+
+    # 从验证集开始采集分数段
+    list_scores = list(set(df_train['score']))
+
+    # 分数最大值、最小值
+    max_score = max(list_scores)
+    min_score = min(list_scores)
+
+    # 采集的分数分段
+    interval_scores = (max_score - min_score) / n_split
+
+    # 采集刻度值
+    list_score_split = sorted([int(min_score + i * interval_scores) for i in range(1, n_split)])
+
+    # 形成分组dict, 注意需要手工添加最后一组
+    for i in range(len(list_score_split)):
+        if i == 0:
+            label_l = '[0,'
+            label_r = str(list_score_split[0]) + ')'
+            label = label_l + label_r
+            dict_score_interval[label] = 0
+        else:
+            label_l = '[' + str(list_score_split[i - 1]) + ','
+            label_r = str(list_score_split[i]) + ')'
+            label = label_l + label_r
+            dict_score_interval[label] = i
+
+    dict_score_interval['[%s, +Inf)' % max(list_score_split)] = n_split - 1
+    # 做个升序sorted
+    dict_score_interval = {k: v for k, v in sorted(dict_score_interval.items(), key=lambda x: x[1])}
+
+    # 映射训练集和测试机的分数区间
+    df_train['score_interval'] = df_train['score'].apply(lambda x: value_to_intervals(x, dict_score_interval))
+    df_test['score_interval'] = df_test['score'].apply(lambda x: value_to_intervals(x, dict_score_interval))
+
+    # 基于分数区间映射groupno
+    df_train['score_groupno'] = df_train['score_interval'].map(dict_score_interval)
+    df_test['score_groupno'] = df_test['score_interval'].map(dict_score_interval)
+
+    # 组成训练集psi统计用的dataframe
+    df_psi_train = df_train.groupby(['score_groupno', 'score_interval'], as_index=False)['score'].count()
+    df_psi_train['actual_pnt'] = df_psi_train['score'] / cnt_train
+    df_psi_train.drop('score', axis=1, inplace=True)
+
+    # 组成测试集psi统计用的dataframe
+    df_psi_test = df_test.groupby(['score_groupno', 'score_interval'], as_index=False)['score'].count()
+    df_psi_test['expected_pnt'] = df_psi_test['score'] / cnt_test
+    df_psi_test.drop('score', axis=1, inplace=True)
+
+    # 组成df_psi
+    df_psi = pd.merge(left=df_psi_train, right=df_psi_test,
+                      how='left',
+                      on=['score_groupno', 'score_interval'])
+
+    # 可能存在测试集不存在分组的情况, 需要填充, 注意该值在后续还需要参与分母计算, 这里填充个接近0的量
+    df_psi['expected_pnt'] = df_psi['expected_pnt'].fillna(1e-9)
+
+    # 计算其他指标
+    df_psi['diff_ac_exp_pnt'] = df_psi['actual_pnt'] - df_psi['expected_pnt']
+    df_psi['div_ac_exp_pnt'] = df_psi['actual_pnt'] / df_psi['expected_pnt']
+    df_psi['ln_ac_exp_pnt'] = np.log(df_psi['div_ac_exp_pnt'])
+    df_psi['index'] = df_psi['diff_ac_exp_pnt'] * df_psi['ln_ac_exp_pnt']
+
+    # 计算psi
+    psi = df_psi['index'].sum()
+
+    return psi, df_psi
+

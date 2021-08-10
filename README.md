@@ -159,3 +159,20 @@ model_gini(y_true=y_true, y_proba=y_proba, is_plot=True)
 ```
 
 ![roc曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_gini.png)
+
+
+PSI系数:
+```python
+from score_card_model.utils import model_psi
+import numpy as np
+
+# 用两个正态分布随机数模拟分数的分布
+n_train, mu_train, sigma_train = 500, 480, 100
+score_train = np.random.normal(mu_train, sigma_train, n_train)
+
+n_test, mu_test, sigma_test = 1000, 480, 90
+score_test = np.random.normal(mu_test, sigma_test, n_test)
+
+# 计算psi以及其分箱分布
+psi, df_psi = model_psi(score_train=score_train, score_test=score_test)
+```
