@@ -1411,7 +1411,7 @@ def model_gini(y_true, y_proba, is_plot=False, dict_plot_params=None):
     # 处理参数
     if dict_plot_params is None:
         dict_plot_params = {'fontsize': 15,
-                            'figsize': (15, 8),
+                            'figsize': (12, 12),
                             'linewidth': 2}
 
     if 'fontsize' in dict_plot_params.keys():
@@ -1422,7 +1422,7 @@ def model_gini(y_true, y_proba, is_plot=False, dict_plot_params=None):
     if 'figsize' in dict_plot_params.keys():
         figsize = dict_plot_params['figsize']
     else:
-        figsize = (15, 8)
+        figsize = (12, 12)
 
     if 'linewidth' in dict_plot_params.keys():
         linewidth = dict_plot_params['linewidth']
