@@ -1,4 +1,5 @@
 import statsmodels.api as sm
+import numpy as np
 import warnings
 from . import utils
 from tqdm import tqdm
@@ -710,19 +711,104 @@ class ScoreCardModel(object):
 
         """
         if not isinstance(md_feats, list):
-            raise Exception('设置的入模特征必须为列表')
+            raise Exception('设置的入模特征必须为列表.')
 
         if len(md_feats) > 0:
             for feat in md_feats:
                 if feat == self.target:
-                    raise Exception('设置的入模特征不允许为目标变量(Y标)')
+                    raise Exception('设置的入模特征不允许为目标变量(Y标).')
                 else:
                     if feat not in self.df.columns:
-                        raise Exception('{0}不存在于候选特征中'.format(feat))
+                        raise Exception('{0}不存在于候选特征中.'.format(feat))
 
             self.md_feats = md_feats
             print('设置入模特征{0}个.'.format(len(md_feats)))
         else:
-            raise Exception('设置的入模特征个数必须大于0')
+            raise Exception('设置的入模特征个数必须大于0.')
+
+
+    def _check_if_has_md_feats(self):
+        """
+
+        检查是否已设置入模特征(列表)
+
+        Parameters:
+        ----------
+
+        Returns:
+        -------
+
+        """
+        if self.md_feats:
+            pass
+        else:
+            raise Exception('未设置入模特征.')
+
+    @ staticmethod
+    def proba_to_score(self, proba, base_score=500, pdo=20):
+        """
+        概率转化为分数
+
+        注意, 这里默认pdo的rate为2倍, 不设置offset,
+
+        Parameters:
+        ----------
+        proba: float, 正例的概率
+
+        base_score: int, 基础分
+
+        pdo: int,odds提高rate(这里是2)倍时变化的分数
+
+        Returns:
+        -------
+        score: int, 分数
+
+        """
+        odds = proba / (1 - proba)
+        score = int(base_score - pdo / np.log(2) * np.log(odds))
+
+        return score
+
+    def get_df_scores(self, df, estimator, base_score=500, pdo=20):
+        """
+        基于入模特征计算dataframe的分数
+
+        Parameters:
+        ----------
+        df: dataframe,训练集, 注意列必须包含所有的入模特征
+
+        estimator: model,模型对象,必须包含predict_proba
+
+        base_score: int,基础分
+
+        pdo: int, 20
+
+        Returns:
+        -------
+        scores: list, 拟合的分数列表
+
+
+        """
+        # 先检查是否有设置入模特征
+        self._check_if_has_md_feats()
+
+        # 再检查df是否含有所有的入模特征
+        if not all([col in df.columns for col in self.md_feats]):
+            raise Exception('输入的dataframe没有包含所有入模特征.')
+
+        # 选择入模特征
+        df = df.loc[:, self.md_feats]
+
+        # 计算proba
+        probas = [p[1] for p in estimator.predict_proba(df)]
+
+        # 计算分数
+        scores = [self.proba_to_score(p, base_score=base_score, pdo=pdo) for p in probas]
+
+        return scores
+
+
+
+
 
 

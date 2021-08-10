@@ -138,6 +138,12 @@ df_woe = df_woe.drop(cols_vif_higher, axis=1)
 ## 基于显著性进行特征筛选
 cols_pval_higher = scm_obj.filter_df_woe_pvalue(df_woe=df_woe, pval_thres=0.05)
 df_woe = df_woe.drop(cols_pval_higher, axis=1)
+
+## 确定入模特征
+md_feats = df_woe.columns.drop(scm_obj.target).tolist()
+
+scm_obj.set_md_features(md_feats)
+
 ```
 
 
