@@ -1205,7 +1205,7 @@ def chi2_cutting_continuous(df_data, feat_list, target,
 
     return dict_contin_feat_to_bins, dict_contin_iv, dict_contin_woe
 
-def model_roc_auc(y_true, y_proba, is_plot=False):
+def model_roc_auc(y_true, y_proba, is_plot=False, dict_plot_params=None):
     """
     绘制roc曲线
     输入X_train_woe, 含预测结果和预测概率的训练集
@@ -1219,27 +1219,51 @@ def model_roc_auc(y_true, y_proba, is_plot=False):
 
     is_plot: boolean, 是否要绘图
 
+    dict_plot_params: dict, 对plot的图像的参数
+
     Returns:
     -------
 
     """
+    # 处理空参数
+    if dict_plot_params is None:
+        dict_plot_params = {'fontsize': 15,
+                            'figsize': (15, 8),
+                            'linewidth': 5}
+
+    if 'fontsize' in dict_plot_params.keys():
+        fontsize = dict_plot_params['fontsize']
+    else:
+        fontsize = 15
+
+    if 'figsize' in dict_plot_params.keys():
+        figsize = dict_plot_params['figsize']
+    else:
+        figsize = (15, 8)
+
+    if 'linewidth' in dict_plot_params.keys():
+        linewidth = dict_plot_params['linewidth']
+    else:
+        linewidth = 5
+
     # 计算auc
     auc = roc_auc_score(y_true=y_true, y_score=y_proba)
 
     # 是否绘图
     if is_plot:
-        fontsize = 15
         fontdict = {'fontsize': fontsize}
+
         # 绘制roc曲线
         fpr, tpr, thresholds = roc_curve(y_true=y_true,
                                          y_score=y_proba,
                                          pos_label=1)
-        fig, ax = plt.subplots(figsize=(15, 8))
+        fig, ax = plt.subplots(figsize=figsize)
 
         # 绘制roc
-        ax.plot(fpr, tpr, label='ROC Curve(AUC=%.2F)' % auc, linewidth=5)
+        ax.plot(fpr, tpr, label='ROC Curve(AUC=%.2F)' % auc, linewidth=linewidth)
+
         # 绘制(0,0) (1,1)直线
-        ax.plot([0, 1], [0, 1], linestyle='--', c='r', linewidth=2)
+        ax.plot([0, 1], [0, 1], linestyle='--', c='r', linewidth=linewidth)
 
         ax.set_title('Receiver Operating Characteristic', fontdict=fontdict)
         ax.set_xlim([0, 1])
