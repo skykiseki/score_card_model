@@ -1374,3 +1374,117 @@ def model_ks(y_true, y_pred, y_proba, is_plot=True, dict_plot_params=None):
         ax.set_ylim((0, 1))
 
     return ks
+
+
+def model_gini(y_true, y_proba, is_plot=False, dict_plot_params=None):
+    """
+    计算Gini系数
+
+    先基于score进行升序排序
+    Gini系数图中, 横坐标是累计的总数或者总数占比
+    纵坐标是累计的正例数或者正例数占比(洛伦兹曲线)
+    45%直线代表无差异, 洛伦兹曲线越靠近该直线, 表示区分度越低
+
+    gini不纯度，越小越纯，区分度越好
+
+    好坏样本占比差异较大时, 坏样本很少, 此时洛伦兹曲线和ROC曲线横纵轴取值基本一致, 曲线基本一致,
+    此时可以使用近似计算gini=2*AUC - 1
+
+    Parameters:
+    ----------
+    y_true: list, 真实的y
+
+    y_proba: list, y的预测概率
+
+    is_plot: boolean, 是否绘制Gini曲线
+
+    dict_plot_params: dict, 绘图的参数
+
+    Returns:
+    -------
+    gini: 最终的gini系数
+
+    """
+    # 转换类型
+    y_true, y_proba = list(y_true), list(y_proba)
+
+    # 处理参数
+    if dict_plot_params is None:
+        dict_plot_params = {'fontsize': 15,
+                            'figsize': (15, 8),
+                            'linewidth': 2}
+
+    if 'fontsize' in dict_plot_params.keys():
+        fontsize = dict_plot_params['fontsize']
+    else:
+        fontsize = 15
+
+    if 'figsize' in dict_plot_params.keys():
+        figsize = dict_plot_params['figsize']
+    else:
+        figsize = (15, 8)
+
+    if 'linewidth' in dict_plot_params.keys():
+        linewidth = dict_plot_params['linewidth']
+    else:
+        linewidth = 2
+
+    # 构建df
+    df = pd.DataFrame({'y_true': y_true, 'y_proba': y_proba})
+
+    # 样本个数, 坏样本个数
+    cnt_total = df.shape[0]
+    cnt_bad = df[df['y_true'] == 1].shape[0]
+
+    # 基于score进行升序
+    df = df.sort_values(by='y_proba', ascending=True)
+
+    # 计算总样本(排序后的)下的样本数占比
+    df['cum_pnt_total'] = [i / cnt_total for i in list(range(1, cnt_total + 1))]
+
+    # 计算坏样本(排序后的)下的样本数占比
+    df['cum_pnt_bad'] = (df['y_true'] == 1).cumsum() / cnt_bad
+
+    # 计算45°线之间的差值
+    df['cum_pnt_diff'] = df['cum_pnt_total'] - df['cum_pnt_bad']
+
+    # 计算A, B, G, 用梯形拟合计算B的面积
+    area_b = np.trapz(df['cum_pnt_bad'], df['cum_pnt_total'])
+
+    # 计算面积A
+    area_a = 0.5 - area_b
+
+    # 计算GINI
+    gini = area_a / (area_a + area_b)
+
+    if is_plot:
+        fontdict = {'fontsize': fontsize}
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.stackplot(df['cum_pnt_total'],
+                     df['cum_pnt_bad'],
+                     df['cum_pnt_diff'],
+                     colors=['#7DB2FA', '#AFC4D6', 'black'])
+        ax.plot(df['cum_pnt_total'],
+                df['cum_pnt_bad'],
+                color='black',
+                linewidth=linewidth,
+                label='Lorenz Curve(Gini=%.2f)' % gini)
+        ax.plot(df['cum_pnt_total'],
+                df['cum_pnt_total'],
+                color='black',
+                linewidth=linewidth)
+
+        ax.set_xlim((0, 1))
+        ax.set_ylim((0, 1))
+        ax.set_title('Lorenz Curve and Gini coefficient', fontsize=fontsize)
+        ax.set_xlabel('Cumulative Pct. of Total', fontdict=fontdict)
+        ax.set_ylabel('Cumulative Pct. of Bad', fontdict=fontdict)
+        ax.text(0.4, 0.45, 'Line of Equality (45 Degree)', rotation=45, fontsize=fontsize, fontweight='bold')
+        ax.text(0.4, 0.2, 'Lorenz Curve', rotation=45, fontsize=fontsize, fontweight='bold')
+        ax.text(0.8, 0.7, 'A', fontsize=fontsize + 10, fontweight='bold')
+        ax.text(0.9, 0.1, 'B', fontsize=fontsize + 10, fontweight='bold')
+        ax.legend(fontsize='xx-large', loc='best')
+
+    return gini
+
+
