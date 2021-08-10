@@ -118,3 +118,17 @@ cols_pval_higher = scm_obj.filter_df_woe_pvalue(df_woe=df_woe, pval_thres=0.05)
 df_woe = df_woe.drop(cols_pval_higher, axis=1)
 
 ```
+
+5.模型评估:
+--------
+
+代码示例:
+```python
+# roc曲线
+from score_card_model.utils import model_roc_auc
+import  random
+
+n = 50
+model_roc_auc([random.randint(0,1) for i in range(n)], [random.random() for i in range(n)], is_plot=True)
+
+```
