@@ -343,19 +343,19 @@ class ScoreCardModel(object):
         self.dict_iv.update(self.dict_disc_iv)
         self.dict_iv.update(self.dict_cont_iv)
 
-    def trans_df_to_woe(self):
+    def trans_df_to_woe(self, df):
         """
         对样本进行woe转化
 
         Parameters:
         ----------
-        self
+        df:需要做woe转化的dataframe
 
         Returns:
         -------
-        self
+        df_woe: woe编码后的dataframe
         """
-        df_woe = self.df.copy()
+        df_woe = df.copy()
 
         for col in tqdm(df_woe.columns, desc='Woe Transforming'):
             # 遍历处理特征, 注意排除target
@@ -375,6 +375,8 @@ class ScoreCardModel(object):
             df_woe[col] = df_woe[col].map(dict_col_to_bins).map(dict_bins_to_woe)
 
         self.df_woe = df_woe
+
+        return df_woe
 
     def add_pinepine(self, pipe_name):
         """
