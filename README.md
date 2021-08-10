@@ -133,11 +133,14 @@ scm_obj.set_md_features(md_feats)
 
 ```
 
-6.dataframe的woe编码:
+6.dataframe的woe编码 & 分数转换:
 -------------------
 ```python
 # 这里是对任意的dataframe进行编码, 比如对测试集进行编码
 df_woe = scm_obj.trans_df_to_woe(df=df_data.loc[:, some_features])
+
+# 获取分数列表
+scores = scm_obj.get_df_scores(df_woe=df_woe_test, estimator=estimator_already_fitted)
 
 ```
 
