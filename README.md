@@ -131,7 +131,7 @@ y_pred = [random.randint(0,1) for i in range(n)]
 y_proba = [random.random() for i in range(n)]
 ```
 
-roc曲线:
+Roc曲线:
 ```python
 from score_card_model.utils import model_roc_auc
 
@@ -141,7 +141,7 @@ model_roc_auc(y_true=y_true, y_proba=y_proba, is_plot=True)
 ![roc曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_roc_auc.png)
 
 
-ks曲线:
+Ks曲线:
 ```python
 from score_card_model.utils import model_ks
 
@@ -149,3 +149,13 @@ model_ks(y_true=y_true, y_pred=y_pred, y_proba=y_proba, is_plot=True)
 ```
 
 ![roc曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_ks.png)
+
+
+Gini系数和Lorenz曲线:
+```python
+from score_card_model.utils import model_gini
+
+model_gini(y_true=y_true, y_proba=y_proba, is_plot=True)
+```
+
+![roc曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_gini.png)
