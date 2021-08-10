@@ -1,10 +1,8 @@
 import pandas as pd
 import numpy as np
-import warnings
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from sklearn.metrics import roc_curve, roc_auc_score
-warnings.filterwarnings('ignore')
 
 def bin_badrate(df, col_name, target):
     """
@@ -1309,7 +1307,7 @@ def model_ks(y, y_pred, y_proba, is_plot=True, dict_plot_params=None):
     if dict_plot_params is None:
         dict_plot_params = {'fontsize': 15,
                             'figsize': (15, 8),
-                            'linewidth': 5}
+                            'linewidth': 2}
 
     if 'fontsize' in dict_plot_params.keys():
         fontsize = dict_plot_params['fontsize']
@@ -1324,7 +1322,7 @@ def model_ks(y, y_pred, y_proba, is_plot=True, dict_plot_params=None):
     if 'linewidth' in dict_plot_params.keys():
         linewidth = dict_plot_params['linewidth']
     else:
-        linewidth = 5
+        linewidth = 2
 
     # 创建df, 计算总样本数、bad样本数、good样本数
     df = pd.DataFrame({'y': y, 'y_pred': y_pred, 'y_proba': y_proba})
