@@ -100,20 +100,6 @@ dict_woe = scm_obj.dict_woe
 # 获取woe转化后的dataframe
 df_woe = scm_obj.df_woe
 
-# 以下筛选过程顺序可以随意安排, 也非必须调用的内容
-
-## 基于iv进行特征筛选
-cols_iv_lower = scm_obj.filter_df_woe_iv(df_woe=df_woe, iv_thres=0.02)
-df_woe = df_woe.drop(cols_iv_lower, axis=1)
-
-## 基于相关系数进行特征筛选
-cols_corr_higher = scm_obj.filter_df_woe_corr(df_woe=df_woe, corr_thres=0.7)
-df_woe = df_woe.drop(cols_corr_higher, axis=1)
-
-## 基于膨胀因子进行特征筛选
-cols_vif_higher = scm_obj.filter_df_woe_vif(df_woe=df_woe, vif_thres=10)
-df_woe = df_woe.drop(cols_vif_higher, axis=1)
-
 ## 基于显著性进行特征筛选
 cols_pval_higher = scm_obj.filter_df_woe_pvalue(df_woe=df_woe, pval_thres=0.05)
 df_woe = df_woe.drop(cols_pval_higher, axis=1)
@@ -146,8 +132,16 @@ scm_obj.set_md_features(md_feats)
 
 ```
 
+6.dataframe的woe编码:
+-------------------
+```python
+# 这里是对任意的dataframe进行编码, 比如对测试集进行编码
+df_woe = scm_obj.trans_df_to_woe(df=df_data.loc[:, some_features])
 
-6.模型评估:
+```
+
+
+7.模型评估:
 --------
 用随机数代表序列:
 ```python

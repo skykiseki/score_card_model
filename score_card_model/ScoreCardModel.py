@@ -110,7 +110,7 @@ class ScoreCardModel(object):
 
         self.md_feats = None
 
-    def add_min_pnt(self, min_pnt):
+    def _add_min_pnt(self, min_pnt):
         """
         添加分箱的样本最小占比
 
@@ -125,7 +125,7 @@ class ScoreCardModel(object):
         self.min_pnt = min_pnt
 
 
-    def add_max_intervals(self, max_intervals):
+    def _add_max_intervals(self, max_intervals):
         """
         添加分箱最大分箱数
 
@@ -139,7 +139,7 @@ class ScoreCardModel(object):
         """
         self.max_intervals = max_intervals
 
-    def add_const_cols_ratio(self, const_cols_ratio):
+    def _add_const_cols_ratio(self, const_cols_ratio):
         """
 
         添加特征常值占比
@@ -154,7 +154,7 @@ class ScoreCardModel(object):
         """
         self.const_cols_ratio = const_cols_ratio
 
-    def add_cols_disc_ord(self, idx_cols_disc_ord):
+    def _add_cols_disc_ord(self, idx_cols_disc_ord):
         """
 
         添加有序特征, 含其排序
@@ -177,7 +177,7 @@ class ScoreCardModel(object):
                 self.cols_disc_ord.append(k)
                 self.idx_cols_disc_ord = idx_cols_disc_ord
 
-    def add_disc_sp_vals(self, sp_vals_cols):
+    def _add_disc_sp_vals(self, sp_vals_cols):
         """
         添加离散型特征的特殊值
 
@@ -192,7 +192,7 @@ class ScoreCardModel(object):
         """
         self.sp_vals_cols = sp_vals_cols
 
-    def get_cols_type(self):
+    def _get_cols_type(self):
         """
         对特征进行分类, 当前为识别col类型进行识别, 但是有序与无序的类别性特征需要手工进行输入,
         object类为类别型特征, 其余为数值型特征
@@ -245,7 +245,7 @@ class ScoreCardModel(object):
         self.mono_expect = {col:{'shape': 'mono', 'u': False} for col in list_cols}
 
 
-    def check_target(self):
+    def _check_target(self):
         """
         简单检查一下Y标的分布是否正确
 
@@ -254,7 +254,7 @@ class ScoreCardModel(object):
             print('Bad Target!!!')
             raise TypeError
 
-    def check_if_has_null(self):
+    def _check_if_has_null(self):
         """
         用于检查输入的dataframe是否有空值
         (原理上不允许出现空值)
@@ -272,7 +272,7 @@ class ScoreCardModel(object):
         else:
             print('Checking None values: No None value exists.')
 
-    def get_const_cols(self):
+    def _get_const_cols(self):
         """
         获得常值特征, 即特征列某个属性占比超阈值%
 
@@ -349,13 +349,17 @@ class ScoreCardModel(object):
 
         Parameters:
         ----------
-        df:需要做woe转化的dataframe
+        df:需要做woe转化的dataframe(注意, 这里会仅筛选出进入了分箱过程的特征)
 
         Returns:
         -------
         df_woe: woe编码后的dataframe
         """
-        df_woe = df.copy()
+        # 检查在df中的特征, 仅选取进入了分箱过程的列
+        cols = [col for col in df.columns if col in self.df.columns]
+
+
+        df_woe = df.loc[:, cols]
 
         for col in tqdm(df_woe.columns, desc='Woe Transforming'):
             # 遍历处理特征, 注意排除target
@@ -419,19 +423,19 @@ class ScoreCardModel(object):
         # 处理输入参数
         for config in pipe_config.keys():
             if config == 'const_cols_ratio' and 0 < pipe_config[config] < 1:
-                self.add_const_cols_ratio(const_cols_ratio=pipe_config[config])
+                self._add_const_cols_ratio(const_cols_ratio=pipe_config[config])
 
             elif config == 'min_pnt' and 0 < pipe_config[config] < 1:
-                self.add_min_pnt(min_pnt=pipe_config[config])
+                self._add_min_pnt(min_pnt=pipe_config[config])
 
             elif config == 'idx_cols_disc_ord' and isinstance(pipe_config[config], dict):
-                self.add_cols_disc_ord(idx_cols_disc_ord=pipe_config[config])
+                self._add_cols_disc_ord(idx_cols_disc_ord=pipe_config[config])
 
             elif config == 'sp_vals_cols' and isinstance(pipe_config[config], dict):
-                self.add_disc_sp_vals(sp_vals_cols=pipe_config[config])
+                self._add_disc_sp_vals(sp_vals_cols=pipe_config[config])
 
             elif config == 'max_intervals' and isinstance(pipe_config[config], int):
-                self.add_max_intervals(max_intervals=pipe_config[config])
+                self._add_max_intervals(max_intervals=pipe_config[config])
 
         # 当前设定第一步检查Y标是否唯一的错误
         self.add_pinepine('Check_Target')
@@ -460,13 +464,13 @@ class ScoreCardModel(object):
             proc_name = proc[1]
 
             if proc_name == 'Check_Target':
-                self.check_target()
+                self._check_target()
             elif proc_name == 'Check_None':
-                self.check_if_has_null()
+                self._check_if_has_null()
             elif proc_name == 'Check_Const_Cols':
-                self.get_const_cols()
+                self._get_const_cols()
             elif proc_name == 'Check_Cols_Types':
-                self.get_cols_type()
+                self._get_cols_type()
             elif proc_name == 'Add_Mono_Expect':
                 self.add_mono_expect()
             elif proc_name == 'Chi2_Cutting':
