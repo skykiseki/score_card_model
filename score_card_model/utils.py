@@ -1223,9 +1223,12 @@ def model_roc_auc(y_true, y_proba, is_plot=False, dict_plot_params=None):
 
     Returns:
     -------
-
+    auc: float, auc值
     """
-    # 处理空参数
+    # 转换类型
+    y_true, y_proba = list(y_true), list(y_proba)
+
+    # 处理参数
     if dict_plot_params is None:
         dict_plot_params = {'fontsize': 15,
                             'figsize': (15, 8),
@@ -1273,3 +1276,103 @@ def model_roc_auc(y_true, y_proba, is_plot=False, dict_plot_params=None):
         ax.legend(loc='lower right', fontsize='x-large')
     # 返回结果
     return auc
+
+
+def model_ks(y, y_pred, y_proba, is_plot=True, dict_plot_params=None):
+    """
+    计算模型的ks(Kolmogorov-Smirnov)
+
+    ks: <0 模型错误, 0~0.2 模型较差, 0.2~0.3 模型可用, >0.3 模型预测性较好
+
+    ks计算公式为 ks = max(cum(Bi)/ Bad(total) - cum(Gi) / Good(total))
+
+    Parameters:
+    ----------
+    y: list, 真实的y
+
+    y_pred: list,预测的y
+
+    y_proba: list, 预测的y的概率
+
+    dict_plot_params: dict, 绘图的参数
+
+    Returns:
+    -------
+    ks: 模型的ks值
+
+
+    """
+    # 转换类型
+    y, y_pred, y_proba = list(y), list(y_pred), list(y_proba)
+
+    # 处理参数
+    if dict_plot_params is None:
+        dict_plot_params = {'fontsize': 15,
+                            'figsize': (15, 8),
+                            'linewidth': 5}
+
+    if 'fontsize' in dict_plot_params.keys():
+        fontsize = dict_plot_params['fontsize']
+    else:
+        fontsize = 15
+
+    if 'figsize' in dict_plot_params.keys():
+        figsize = dict_plot_params['figsize']
+    else:
+        figsize = (15, 8)
+
+    if 'linewidth' in dict_plot_params.keys():
+        linewidth = dict_plot_params['linewidth']
+    else:
+        linewidth = 5
+
+    # 创建df, 计算总样本数、bad样本数、good样本数
+    df = pd.DataFrame({'y': y, 'y_pred': y_pred, 'y_proba': y_proba})
+    cnt_total = df['y'].shape[0]
+    cnt_bad = df.loc[df['y'] == 1].shape[0]
+    cnt_good = cnt_total - cnt_bad
+
+    # 对df基于proba进行降序排序
+    df = df.sort_values(by='y_proba', ascending=False)
+
+    # 计算总样本(排序后的)下的样本数占比
+    df['cum_pnt_total'] = [i / cnt_total for i in list(range(1, cnt_total + 1))]
+
+    # 计算好样本(排序后的)下的样本数占比
+    df['cum_pnt_good'] = (df['y'] == 0).cumsum() / cnt_good
+
+    # 计算坏样本(排序后的)下的样本数占比
+    df['cum_pnt_bad'] = (df['y'] == 1).cumsum() / cnt_bad
+
+    # 计算差值的绝对值
+    df['cum_diff_value'] = abs(df['cum_pnt_bad'] - df['cum_pnt_good'])
+
+    # 计算ks值
+    ks = df['cum_diff_value'].max()
+
+    # 绘制ks曲线
+    if is_plot:
+        ## 取得ks下的index, 计算在该idx下的cum_pnt_total
+        idxmax = df['cum_diff_value'].idxmax()
+        x_ks = df.loc[idxmax, 'cum_pnt_total']
+
+        ## 绘图
+        fig, ax = plt.subplots(figsize=figsize)
+
+        ax.plot(df['cum_pnt_total'], df['cum_pnt_bad'], linewidth=linewidth, label='Bad')
+        ax.plot(df['cum_pnt_total'], df['cum_pnt_good'], linewidth=linewidth, label='Good')
+        ax.plot(df['cum_pnt_total'], df['cum_diff_value'], linewidth=linewidth, label='K-S Curve')
+        ax.plot([x_ks], [ks], 'o')
+        ax.annotate('K-S Statistic(%.2f)' % ks, xy=(x_ks, ks),
+                    xytext=(x_ks, ks / 1.5),
+                    fontsize=fontsize,
+                    arrowprops=dict(arrowstyle='fancy', facecolor='red'))
+
+        ax.grid(linewidth=0.4, linestyle='--')
+        ax.legend(loc='left upper', fontsize='large')
+        ax.set_title('K-S Curve', fontsize=fontsize)
+
+        ax.set_xlim((0, 1))
+        ax.set_ylim((0, 1))
+
+    return ks
