@@ -121,16 +121,31 @@ df_woe = df_woe.drop(cols_pval_higher, axis=1)
 
 5.模型评估:
 --------
-
-roc曲线:
+用随机数代表序列:
 ```python
-from score_card_model.utils import model_roc_auc
 import  random
 
 n = 50
 y_true = [random.randint(0,1) for i in range(n)]
+y_pred = [random.randint(0,1) for i in range(n)]
 y_proba = [random.random() for i in range(n)]
+```
+
+roc曲线:
+```python
+from score_card_model.utils import model_roc_auc
+
 model_roc_auc(y_true=y_true, y_proba=y_proba, is_plot=True)
 ```
 
 ![roc曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_roc_auc.png)
+
+
+ks曲线:
+```python
+from score_card_model.utils import model_ks
+
+model_ks(y_true=y_true, y_pred=y_pred, y_proba=y_proba, is_plot=True)
+```
+
+![roc曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_ks.png)
