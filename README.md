@@ -130,3 +130,5 @@ import  random
 n = 50
 model_roc_auc([random.randint(0,1) for i in range(n)], [random.random() for i in range(n)], is_plot=True)
 ```
+
+![roc曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_roc_auc.png)
