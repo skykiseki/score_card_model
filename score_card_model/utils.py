@@ -1,7 +1,9 @@
 import pandas as pd
 import numpy as np
 import warnings
+import matplotlib.pyplot as plt
 from tqdm import tqdm
+from sklearn.metrics import roc_curve, roc_auc_score
 warnings.filterwarnings('ignore')
 
 def bin_badrate(df, col_name, target):
@@ -1203,3 +1205,47 @@ def chi2_cutting_continuous(df_data, feat_list, target,
 
     return dict_contin_feat_to_bins, dict_contin_iv, dict_contin_woe
 
+def model_roc_auc(y_true, y_proba, is_plot=False):
+    """
+    绘制roc曲线
+    输入X_train_woe, 含预测结果和预测概率的训练集
+    输入is_plot, 是否绘图
+
+    Parameters:
+    ----------
+    y_true: list, 实际的y(默认1为正例)
+
+    y_proba: list, 预测的y的probability(概率)
+
+    is_plot: boolean, 是否要绘图
+
+    Returns:
+    -------
+
+    """
+    # 计算auc
+    auc = roc_auc_score(y_true=y_true, y_score=y_proba)
+
+    # 是否绘图
+    if is_plot:
+        fontsize = 15
+        fontdict = {'fontsize': fontsize}
+        # 绘制roc曲线
+        fpr, tpr, thresholds = roc_curve(y_true=y_true,
+                                         y_score=y_proba,
+                                         pos_label=1)
+        fig, ax = plt.subplots(figsize=(15, 8))
+
+        # 绘制roc
+        ax.plot(fpr, tpr, label='ROC Curve(AUC=%.2F)' % auc, linewidth=5)
+        # 绘制(0,0) (1,1)直线
+        ax.plot([0, 1], [0, 1], linestyle='--', c='r', linewidth=2)
+
+        ax.set_title('Receiver Operating Characteristic', fontdict=fontdict)
+        ax.set_xlim([0, 1])
+        ax.set_ylim([0, 1.05])
+        ax.set_xlabel('False Positive Rate', fontdict=fontdict)
+        ax.set_ylabel('True Positive Rate', fontdict=fontdict)
+        ax.legend(loc='lower right', fontsize='x-large')
+    # 返回结果
+    return auc
