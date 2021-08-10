@@ -709,7 +709,17 @@ class ScoreCardModel(object):
         self
 
         """
+        if not isinstance(md_feats, list):
+            raise Exception('设置的入模特征必须为列表')
+
         if len(md_feats) > 0:
+            for feat in md_feats:
+                if feat == self.target:
+                    raise Exception('设置的入模特征不允许为目标变量(Y标)')
+                else:
+                    if feat not in self.df.columns:
+                        raise Exception('{0}不存在于候选特征中'.format(feat))
+
             self.md_feats = md_feats
             print('设置入模特征{0}个.'.format(len(md_feats)))
         else:

@@ -120,7 +120,28 @@ df_woe = df_woe.drop(cols_pval_higher, axis=1)
 
 ```
 
-5.模型评估:
+5.特征筛选
+```python
+# 以下筛选过程顺序可以随意安排, 也非必须调用的内容
+## 基于iv进行特征筛选
+cols_iv_lower = scm_obj.filter_df_woe_iv(df_woe=df_woe, iv_thres=0.02)
+df_woe = df_woe.drop(cols_iv_lower, axis=1)
+
+## 基于相关系数进行特征筛选
+cols_corr_higher = scm_obj.filter_df_woe_corr(df_woe=df_woe, corr_thres=0.7)
+df_woe = df_woe.drop(cols_corr_higher, axis=1)
+
+## 基于膨胀因子进行特征筛选
+cols_vif_higher = scm_obj.filter_df_woe_vif(df_woe=df_woe, vif_thres=10)
+df_woe = df_woe.drop(cols_vif_higher, axis=1)
+
+## 基于显著性进行特征筛选
+cols_pval_higher = scm_obj.filter_df_woe_pvalue(df_woe=df_woe, pval_thres=0.05)
+df_woe = df_woe.drop(cols_pval_higher, axis=1)
+```
+
+
+6.模型评估:
 --------
 用随机数代表序列:
 ```python
