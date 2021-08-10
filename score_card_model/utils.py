@@ -1271,12 +1271,12 @@ def model_roc_auc(y_true, y_proba, is_plot=False, dict_plot_params=None):
         ax.set_ylim([0, 1.05])
         ax.set_xlabel('False Positive Rate', fontdict=fontdict)
         ax.set_ylabel('True Positive Rate', fontdict=fontdict)
-        ax.legend(loc='lower right', fontsize='x-large')
+        ax.legend(loc='best', fontsize='x-large')
     # 返回结果
     return auc
 
 
-def model_ks(y, y_pred, y_proba, is_plot=True, dict_plot_params=None):
+def model_ks(y_true, y_pred, y_proba, is_plot=True, dict_plot_params=None):
     """
     计算模型的ks(Kolmogorov-Smirnov)
 
@@ -1286,7 +1286,7 @@ def model_ks(y, y_pred, y_proba, is_plot=True, dict_plot_params=None):
 
     Parameters:
     ----------
-    y: list, 真实的y
+    y_true: list, 真实的y
 
     y_pred: list,预测的y
 
@@ -1301,7 +1301,7 @@ def model_ks(y, y_pred, y_proba, is_plot=True, dict_plot_params=None):
 
     """
     # 转换类型
-    y, y_pred, y_proba = list(y), list(y_pred), list(y_proba)
+    y_true, y_pred, y_proba = list(y_true), list(y_pred), list(y_proba)
 
     # 处理参数
     if dict_plot_params is None:
@@ -1325,9 +1325,9 @@ def model_ks(y, y_pred, y_proba, is_plot=True, dict_plot_params=None):
         linewidth = 2
 
     # 创建df, 计算总样本数、bad样本数、good样本数
-    df = pd.DataFrame({'y': y, 'y_pred': y_pred, 'y_proba': y_proba})
-    cnt_total = df['y'].shape[0]
-    cnt_bad = df.loc[df['y'] == 1].shape[0]
+    df = pd.DataFrame({'y_true': y_true, 'y_pred': y_pred, 'y_proba': y_proba})
+    cnt_total = df['y_true'].shape[0]
+    cnt_bad = df.loc[df['y_true'] == 1].shape[0]
     cnt_good = cnt_total - cnt_bad
 
     # 对df基于proba进行降序排序
@@ -1337,10 +1337,10 @@ def model_ks(y, y_pred, y_proba, is_plot=True, dict_plot_params=None):
     df['cum_pnt_total'] = [i / cnt_total for i in list(range(1, cnt_total + 1))]
 
     # 计算好样本(排序后的)下的样本数占比
-    df['cum_pnt_good'] = (df['y'] == 0).cumsum() / cnt_good
+    df['cum_pnt_good'] = (df['y_true'] == 0).cumsum() / cnt_good
 
     # 计算坏样本(排序后的)下的样本数占比
-    df['cum_pnt_bad'] = (df['y'] == 1).cumsum() / cnt_bad
+    df['cum_pnt_bad'] = (df['y_true'] == 1).cumsum() / cnt_bad
 
     # 计算差值的绝对值
     df['cum_diff_value'] = abs(df['cum_pnt_bad'] - df['cum_pnt_good'])
@@ -1367,7 +1367,7 @@ def model_ks(y, y_pred, y_proba, is_plot=True, dict_plot_params=None):
                     arrowprops=dict(arrowstyle='fancy', facecolor='red'))
 
         ax.grid(linewidth=0.4, linestyle='--')
-        ax.legend(loc='left upper', fontsize='large')
+        ax.legend(loc='best', fontsize='large')
         ax.set_title('K-S Curve', fontsize=fontsize)
 
         ax.set_xlim((0, 1))
