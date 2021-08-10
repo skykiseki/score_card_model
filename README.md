@@ -176,3 +176,19 @@ score_test = np.random.normal(mu_test, sigma_test, n_test)
 # 计算psi以及其分箱分布
 psi, df_psi = model_psi(score_train=score_train, score_test=score_test)
 ```
+
+Lift:
+```python
+from score_card_model.utils import model_psi
+import numpy as np
+import random
+
+# 用正态分布随机数模拟分数的分布
+n_train, mu_train, sigma_train = 1000, 500, 80
+y_true = [random.randint(0,1) for i in range(n_train)]
+y_score = np.random.normal(mu_train, sigma_train, n_train).astype(int)
+
+# 计算lift及绘图
+df = model_lift(y_true=y_true, y_score=y_score,is_plot=True)
+```
+![Lift曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_lift.png)
