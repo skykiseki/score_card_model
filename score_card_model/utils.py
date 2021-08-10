@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from sklearn.metrics import roc_curve, roc_auc_score
+from matplotlib.ticker import MultipleLocator
+
 
 def bin_badrate(df, col_name, target):
     """
@@ -1586,3 +1588,152 @@ def model_psi(score_train, score_test, n_split=10):
 
     return psi, df_psi
 
+
+def model_lift(y_true, y_score, n_split=10, is_plot=False, dict_plot_params=None):
+    """
+    计算LIFT提升度, 比较用模型与不用模型的提升
+    计算模型在该P阈值下的精度Precision = TP/(TP+FP)
+    由模型定义可知, 大于p值的会被分类正类(1),小于的则会成为负类(0)
+    所以经过proba排序后, 逻辑类似TPR,FPR
+    此时模型预测的坏样本数其实就是样本数
+
+    解读lift:
+    在样本内,样本数为M,含有N个正类需要抓取, 此时抓取概率为N/M,随机抓取
+    若以p_thres作为阈值,在大于阈值的样本(sub_sample)同样是抓取N个正类,此时由于范围小了,自然抓取概率变大,变大为N/(FP+TP)
+    则lift为此时精度与实际比率的提升率
+    从公式来看,可以理解为在M中抓,和在(FP+TP)内抓取N个正类, LIFT其实也就是M/(FP+TP), 即抓取面积的比率
+    depth可以理解为样本的百分比或者某个分数、某个概率阈值
+    如果阈值设的很大,即depth很小,这个时候lift很大, 为了展现, 一般以10% * N 作为阈值点
+
+    输入X 输入的含y, y_pred, y_proba的集合
+    输入targetname, 目标变量名
+    输入n_split, 分组数
+
+    Parameters:
+    ----------
+
+    Returns:
+    -------
+    Just plot.
+
+    """
+    # 转换类型
+    y_true, y_score = list(y_true), list(y_score)
+
+    # 处理参数
+    if dict_plot_params is None:
+        dict_plot_params = {'fontsize': 15,
+                            'figsize': (15, 12),
+                            'linewidth': 3,
+                            'width': 0.35}
+
+    if 'fontsize' in dict_plot_params.keys():
+        fontsize = dict_plot_params['fontsize']
+    else:
+        fontsize = 15
+
+    if 'figsize' in dict_plot_params.keys():
+        figsize = dict_plot_params['figsize']
+    else:
+        figsize = (15, 12)
+
+    if 'linewidth' in dict_plot_params.keys():
+        linewidth = dict_plot_params['linewidth']
+    else:
+        linewidth = 3
+
+    if 'width' in dict_plot_params.keys():
+        width = dict_plot_params['width']
+    else:
+        width = 0.35
+
+    # 构建df
+    df = pd.DataFrame({'y_true': y_true, 'score': y_score})
+
+    # 基于score进行降序排序
+    df = df.sort_values(by='score', ascending=True).reset_index(drop=True)
+
+    # 总样本数
+    cnt_total = df.shape[0]
+    # 每个分组样本数
+    cnt_perbin = np.ceil(cnt_total / n_split)
+    # 先计算得到阈值的index
+    list_index = []
+    for i in range(1, n_split + 1):
+        if i == n_split:
+            list_index.append(cnt_total - 1)
+        else:
+            list_index.append(int(i * cnt_perbin))
+
+    list_index = sorted(list_index)
+
+    # 计算TP,FP,DEPTH,FPR, BADRATE_ACTUAL,LIFT
+    df['true_positive'] = (df['y_true'] == 1).cumsum()
+    df['false_positive'] = (df['y_true'] == 0).cumsum()
+    df['fpr'] = df['true_positive'] / (df['true_positive'] + df['false_positive'])
+    df['depth'] = [i / cnt_total for i in range(1, cnt_total + 1)]
+    df['badrate_actual'] = (df['y_true'] == 1).cumsum() / cnt_total
+    df['lift_cum'] = df['fpr'] / df['badrate_actual']
+
+    # 产生score分组区间
+    list_scores = df.loc[list_index, 'score'].to_list()
+    dict_score_interv = {}
+    for i in range(len(list_index)):
+        if i == 0:
+            label = '[0,%s]' % str(list_scores[i])
+            dict_score_interv[label] = i
+        else:
+            label = '(%s,%s]' % (str(list_scores[i - 1]), str(list_scores[i]))
+            dict_score_interv[label] = i
+
+    df['score_bin'] = df['score'].apply(lambda x: value_to_intervals(x, dict_score_interv))
+    df['score_bin_no'] = df['score_bin'].map(dict_score_interv)
+
+    # 汇总 & 计算模型累积值
+    lift_regroup = df.groupby(['score_bin_no', 'score_bin'])['y_true'].agg(['count', 'sum'])
+    lift_regroup = lift_regroup.rename(columns={'count': 'total_cnt', 'sum': 'bad_cnt'}).reset_index()
+
+    lift_regroup['bad_pnt_int'] = lift_regroup['bad_cnt'] / lift_regroup['bad_cnt'].sum()
+    lift_regroup['total_pnt'] = lift_regroup['total_cnt'] / cnt_total
+    lift_regroup['bad_pnt_int_cum'] = lift_regroup['bad_pnt_int'].cumsum()
+    lift_regroup['total_pnt_cum'] = lift_regroup['total_pnt'].cumsum()
+    lift_regroup['lift'] = lift_regroup['bad_pnt_int_cum'] / lift_regroup['total_pnt_cum']
+
+    if is_plot:
+        fig, ax = plt.subplots(2, 1, figsize=figsize)
+
+        # 绘制累积LIFT图
+        ax[0].plot(df.loc[list_index, 'depth'], df.loc[list_index, 'lift_cum'],
+                   label='Lift(Model)',
+                   linewidth=linewidth,
+                   marker='o')
+
+        ax[0].plot(df.loc[list_index, 'depth'], [1] * n_split,
+                   label='Lift(Random)',
+                   linewidth=linewidth,
+                   marker='o',
+                   color='r')
+
+        ax[0].set_title('Cumulative Lift Chart', fontsize=fontsize)
+        ax[0].set_xlabel('Depth', fontsize=fontsize)
+        ax[0].set_ylabel('Lift', fontsize=fontsize)
+        ax[0].legend(loc='best', fontsize='x-large')
+        ax[0].grid()
+        ax[0].xaxis.set_major_locator(MultipleLocator(0.1))
+        ax[0].yaxis.set_major_locator(MultipleLocator(1))
+
+        # 绘制分数分组LIFT图
+        ax[1].bar(lift_regroup['score_bin_no'] - width / 2, lift_regroup['bad_pnt_int'], width=width, color='#7DB2FA')
+        ax[1].bar(lift_regroup['score_bin_no'] + width / 2, lift_regroup['total_pnt'], width=width, color='#AFC4D6')
+        ax_twinx_1 = ax[1].twinx()
+        ax_twinx_1.plot(lift_regroup['score_bin_no'], lift_regroup['lift'], label='Lift', marker='o', color='r')
+        ax[1].set_title('Lift Chart', fontsize=fontsize)
+        ax[1].set_xlabel('Score Group', fontsize=fontsize)
+        ax[1].set_ylabel('Pct. of Bad', fontsize=fontsize)
+        ax[1].set_xticks(range(n_split))
+        ax[1].set_xticklabels(list(lift_regroup['score_bin']), fontsize=fontsize - 5)
+        ax_twinx_1.set_ylabel('Lift', fontsize=fontsize)
+        ax[1].grid()
+        ax_twinx_1.legend(loc='best', fontsize='x-large')
+
+    return lift_regroup
