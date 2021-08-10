@@ -1273,7 +1273,7 @@ def model_roc_auc(y_true, y_proba, is_plot=False, dict_plot_params=None):
         ax.set_ylim([0, 1.05])
         ax.set_xlabel('False Positive Rate', fontdict=fontdict)
         ax.set_ylabel('True Positive Rate', fontdict=fontdict)
-        ax.legend(loc='best', fontsize='x-large')
+        ax.legend(loc='best', fontsize='large')
     # 返回结果
     return auc
 
@@ -1723,8 +1723,14 @@ def model_lift(y_true, y_score, n_split=10, is_plot=False, dict_plot_params=None
         ax[0].yaxis.set_major_locator(MultipleLocator(1))
 
         # 绘制分数分组LIFT图
-        ax[1].bar(lift_regroup['score_bin_no'] - width / 2, lift_regroup['bad_pnt_int'], width=width, color='#7DB2FA')
-        ax[1].bar(lift_regroup['score_bin_no'] + width / 2, lift_regroup['total_pnt'], width=width, color='#AFC4D6')
+        ax[1].bar(lift_regroup['score_bin_no'] - width / 2, lift_regroup['bad_pnt_int'],
+                  width=width,
+                  color='#7DB2FA',
+                  label='Bad_pct(Model)')
+        ax[1].bar(lift_regroup['score_bin_no'] + width / 2, lift_regroup['total_pnt'],
+                  width=width,
+                  color='#AFC4D6',
+                  label='Bad_pct(Random)')
         ax_twinx_1 = ax[1].twinx()
         ax_twinx_1.plot(lift_regroup['score_bin_no'], lift_regroup['lift'], label='Lift', marker='o', color='r')
         ax[1].set_title('Lift Chart', fontsize=fontsize)
@@ -1734,6 +1740,8 @@ def model_lift(y_true, y_score, n_split=10, is_plot=False, dict_plot_params=None
         ax[1].set_xticklabels(list(lift_regroup['score_bin']), fontsize=fontsize - 5)
         ax_twinx_1.set_ylabel('Lift', fontsize=fontsize)
         ax[1].grid()
-        ax_twinx_1.legend(loc='best', fontsize='x-large')
+        ax[1].legend(loc='upper right', fontsize='medium')
+
+        plt.legend(['Lift'], loc='upper left', fontsize='large')
 
     return lift_regroup
