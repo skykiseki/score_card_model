@@ -51,7 +51,7 @@ setup(name='score-card-model',
       install_requires=[
         'pandas',
         'numpy',
-        'seaborn',
+        'seaborn>=0.11.1',
         'scikit-learn',
         'statsmodels>=0.12.2',
         'matplotlib',

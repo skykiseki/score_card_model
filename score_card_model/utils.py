@@ -1748,9 +1748,7 @@ def model_lift(y_true, y_score, n_split=10, is_plot=False, dict_plot_params=None
     return lift_regroup
 
 
-
-
-def plot_score_badrate(y, score, dict_plot_params=None):
+def plot_score_distribution(y, score, dict_plot_params=None):
     """
     绘制score的频数分布, score的01频数分布, badrate与score的曲线
 
@@ -1802,52 +1800,66 @@ def plot_score_badrate(y, score, dict_plot_params=None):
     # 绘制一个3X1的画布
     fig, ax = plt.subplots(3, figsize=figsize)
 
-    score_min = df['score'].min() // 100 * 100
-    score_max = df['score'].max() // 100 * 100
-    x_range = range(score_min, score_max, 20)
-    x_linrange = np.linspace(df['score'].min(), df['score'].max(), 20)
-
     fontdict = {'fontsize': fontsize}
 
     # 第一个绘制评分频数分布
-    sns.distplot(df['score'], ax=ax[0])
+    sns.kdeplot(df['score'], ax=ax[0], linewidth=linewidth)
+    ax[0].grid(linestyle='--', alpha=0.5)
     ax[0].set_title('Distribution of scores', fontsize=fontsize)
-    # ax[0].set_xticks(x_range)
-    ax[0].set_xlabel('score', fontdict=fontdict)
+    ax[0].set_xlabel('Score', fontdict=fontdict)
+    ax[0].set_ylabel('Density', fontdict=fontdict)
 
     # 第二个绘制0,1两类的频数分布
-    df['lin_bins'] = pd.cut(df['score'], x_linrange)
-    sns.distplot(df.loc[df['y'] == 0, 'score'], ax=ax[1], hist=False, label='0', kde_kws={'lw': linewidth})
+    sns.kdeplot(df.loc[df['y'] == 0, 'score'], ax=ax[1], label='y=0', linewidth=linewidth)
 
-    sns.distplot(df.loc[df['y'] == 1, 'score'], ax=ax[1], hist=False, label='1', kde_kws={'lw': linewidth})
+    sns.kdeplot(df.loc[df['y'] == 1, 'score'], ax=ax[1], label='y=1', linewidth=linewidth)
 
     ax[1].set_title('Distibution of scores(0,1)', fontsize=fontsize)
-    # ax[1].set_xticks(x_range)
-    ax[1].set_xlabel('score', fontdict=fontdict)
+    ax[1].grid(linestyle='--', alpha=0.5)
+    ax[1].set_xlabel('Score', fontdict=fontdict)
+    ax[1].set_ylabel('Density', fontdict=fontdict)
     ax[1].legend(fontsize='large')
 
     # 第三个绘制badrate的频数分布
-    regroup_badrate = bin_badrate(df, col_name='lin_bins', target='y')
-    twinx_ax2 = ax[2].twinx()
-    sns.distplot(df['score'], bins=x_linrange,
+    score_min, score_max = df['score'].min() // 100 * 100, df['score'].max() // 100 * 100
+
+    x_linsrange = np.linspace(df['score'].min(), df['score'].max(), 20)
+
+    df['score_bins'] = pd.cut(df['score'], bins=x_linsrange)
+
+    regroup_badrate = bin_badrate(df, col_name='score_bins', target='y')
+    ## 可能存在有空箱吗？ 以防万一兜底
+    regroup_badrate['bad_rate'].fillna(0, inplace=True)
+
+    sns.histplot(df['score'],
+                 bins=x_linsrange,
+                 label='Count',
                  kde=False,
                  ax=ax[2],
-                 hist_kws={'rwidth': 0.9})
+                 color='#A5C8E1',
+                 linewidth=0.5)
 
-    twinx_ax2.plot(x_linrange[1:], regroup_badrate['bad_rate'].to_list(),
+    ax[2].set_title('Distibution of score groups & Badrate', fontsize=fontsize)
+    ax[2].set_xlabel('Score', fontdict=fontdict)
+    ax[2].grid(linestyle='--', alpha=0.5)
+    ax[2].legend(loc='upper left', fontsize='x-large')
+
+    twinx_ax2 = ax[2].twinx()
+    twinx_ax2.plot(x_linsrange[1:],
+                   regroup_badrate['bad_rate'].to_list(),
                    linestyle='--',
                    linewidth=linewidth,
                    marker='x',
                    markersize=markersize,
                    markeredgewidth=5,
                    c='r',
-                   label='badrate')
+                   label='Badrate')
 
-    ax[2].set_title('Distibution of scores & badrates', fontsize=fontsize)
-    ax[2].set_xlabel('score', fontdict=fontdict)
-    twinx_ax2.set_ylabel('badrate', fontdict=fontdict)
+    twinx_ax2.set_ylabel('Badrate', fontdict=fontdict)
+    twinx_ax2.legend(loc='upper right', fontsize='x-large')
 
     # 铺满整个画布
     fig.tight_layout()
+
 
 
