@@ -831,7 +831,8 @@ class ScoreCardModel(object):
             dict_plot_params = {'fontsize': 15,
                                 'figsize': (15, 30),
                                 'linewidth': 3,
-                                'markersize': 15}
+                                'markersize': 15,
+                                'markeredgewidth': 6}
 
         if 'fontsize' in dict_plot_params.keys():
             fontsize = dict_plot_params['fontsize']
@@ -852,6 +853,11 @@ class ScoreCardModel(object):
             markersize = dict_plot_params['markersize']
         else:
             markersize = 15
+
+        if 'markeredgewidth' in dict_plot_params.keys():
+            markeredgewidth = dict_plot_params['markeredgewidth']
+        else:
+            markeredgewidth = 6
 
 
         # 先检查target变量是否存在
@@ -883,7 +889,9 @@ class ScoreCardModel(object):
         fig, ax = plt.subplots(len(cols) - 1, 1, figsize=figsize)
 
         # 开始遍历
-        for col in cols:
+        for i in range(len(cols)):
+            col = cols[i]
+
             if col == self.target:
                 continue
 
@@ -896,8 +904,49 @@ class ScoreCardModel(object):
 
             df[col] = df[col].map(dict_col_to_bins)
 
-            # 开始绘图
+            # 创建regroup_badrate
+            regroup_badrate = utils.bin_badrate(df, col_name=col + '_groupno', target=self.target)
 
+            # 创建样本占比
+            regroup_badrate['pnt_feat_vals'] = regroup_badrate['num_feat_vals'] / df.shape[0]
+
+            # 注意regroup_badrate需要排序
+            regroup_badrate = regroup_badrate.sort_index()
+
+            fontdict={'fontsize': fontsize}
+            # 开始绘图
+            ax[i].bar(regroup_badrate.index, regroup_badrate['pnt_feat_vals'])
+            ax[i].set_ylim((0, 1))
+            ax[i].set_title("{0}' Badrate".format(col), fontdict=fontdict)
+            ax[i].set_xticks(regroup_badrate.index)
+            for x, y, z in zip(list(regroup_badrate.index),
+                               list(regroup_badrate['pnt_feat_vals'] / 2),
+                               list(regroup_badrate['pnt_feat_vals'])):
+                ax[i].text(x, y, '{0:.2f}%'.format(z * 100),
+                           ha='center',
+                           va='center',
+                           fontdict=fontdict,
+                           color='white')
+
+            if col not in self.cols_disc:
+                list_xlabel = [k for k, v in sorted(dict_col_to_bins[col].items(), key=lambda x: x[1])]
+                ax[i].set_xticklabels(list_xlabel, fontdict=fontdict)
+            ax[i].set_xlabel('Group', fontdict=fontdict)
+            ax[i].set_ylabel('Pct. of feat value', fontdict=fontdict)
+
+            ax_twin = ax[i].twinx()
+            ax_twin.plot(regroup_badrate.index, regroup_badrate['bad_rate'],
+                         linewidth=3, linestyle='--', color='r',
+                         marker='x', markersize=markersize, markeredgewidth=markeredgewidth,
+                         label='Badrate')
+            for x, y, z in zip(list(regroup_badrate.index),
+                               list(regroup_badrate['bad_rate']),
+                               list(regroup_badrate['bad_rate'])):
+                ax_twin.text(x, y + 0.02, '{0:.2f}%'.format(z * 100),
+                             ha='center', va='center', fontdict=fontdict, color='r')
+            ax_twin.set_ylim((0, regroup_badrate['bad_rate'].max() + 0.1))
+            ax_twin.set_ylabel('Badrate', fontdict=fontdict)
+            ax_twin.legend(loc='best', fontsize='xx-large')
 
 
 
