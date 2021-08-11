@@ -935,6 +935,8 @@ class ScoreCardModel(object):
             # 创建regroup_badrate
             regroup_badrate = utils.bin_badrate(df, col_name=col + '_groupno', target=self.target)
 
+            return regroup_badrate
+
             # 创建样本占比
             regroup_badrate['pnt_feat_vals'] = regroup_badrate['num_feat_vals'] / df.shape[0]
 
@@ -964,7 +966,7 @@ class ScoreCardModel(object):
 
             ax_twin = ax[i].twinx()
             ax_twin.plot(regroup_badrate.index, regroup_badrate['bad_rate'],
-                         linewidth=3,
+                         linewidth=linewidth,
                          linestyle='--',
                          color='r',
                          marker='x',
