@@ -811,4 +811,40 @@ class ScoreCardModel(object):
 
         return scores
 
+    def plot_feats_badrate(self, df, use_cols=None):
+        """
+        对数据集的各个col绘制badrate分布图
+
+        Parameters:
+        ----------
+        df: dataframe, 输入的数据集
+
+        use_cols: list, 选择使用的列, 如果为None, 则为全部进行分箱和统计绘图
+
+        Returns:
+        -------
+        Just plot
+
+        """
+        # 先检查target变量是否存在
+        if self.target not in df.columns:
+            raise Exception('输入的Dataframe不存在目标变量{0}.'.format(self.target))
+
+        # 筛选出使用的特征列
+        if use_cols:
+            if len(use_cols) == 0:
+                raise Exception('输入的参数use_cols为空.')
+            else:
+                ## 可能有冗余奇怪的列不在分箱的过程中, 会被筛掉, 先不添加target进去
+                cols = [col for col in use_cols if col in self.df.columns and col != self.target]
+
+                if len(cols) == 0:
+                    raise Exception('输入的参数use_cols无可用的列.')
+
+                cols.append(self.target)
+
+            df = df.loc[:, cols]
+
+        #
+
 
