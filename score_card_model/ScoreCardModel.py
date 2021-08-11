@@ -944,6 +944,7 @@ class ScoreCardModel(object):
                                list(regroup_badrate['bad_rate'])):
                 ax_twin.text(x, y + 0.02, '{0:.2f}%'.format(z * 100),
                              ha='center', va='center', fontdict=fontdict, color='r')
+                
             ax_twin.set_ylim((0, regroup_badrate['bad_rate'].max() + 0.1))
             ax_twin.set_ylabel('Badrate', fontdict=fontdict)
             ax_twin.legend(loc='best', fontsize='xx-large')
