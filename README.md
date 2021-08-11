@@ -223,4 +223,6 @@ from score_card_model.utils import plot_score_distribution
 
 plot_score_badrate(y=y_true_train, score=score_train)
 ```
-![score分数 & 特征的分布](https://github.com/skykiseki/score_card_model/blob/main/pics/plot_score_distribution.png)
+![score分数 & 特征的分布](https://github.com/skykiseki/score_card_model/blob/main/pics/plot_score_distribution_0.png)
+![score分数 & 特征的分布](https://github.com/skykiseki/score_card_model/blob/main/pics/plot_score_distribution_1.png)
+![score分数 & 特征的分布](https://github.com/skykiseki/score_card_model/blob/main/pics/plot_score_distribution_2.png)
