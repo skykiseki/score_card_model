@@ -153,18 +153,18 @@ scores = scm_obj.get_df_scores(df_woe=df_woe_test, estimator=estimator_already_f
 import  random
 import numpy as np
 
-n = 50
-y_true = [random.randint(0,1) for i in range(n)]
-y_pred = [random.randint(0,1) for i in range(n)]
-y_proba = [random.random() for i in range(n)]
-
 # 用两个正态分布随机数模拟分数的分布
 n_train, mu_train, sigma_train = 500, 480, 100
+y_true_train = [random.randint(0,1) for i in range(n_train)]
+y_pred_train = [random.randint(0,1) for i in range(n_train)]
+y_proba_train = [random.random() for i in range(n_train)]
 score_train = np.random.normal(mu_train, sigma_train, n_train)
 
 n_test, mu_test, sigma_test = 1000, 480, 90
+y_true_test = [random.randint(0,1) for i in range(n_test)]
+y_pred_test = [random.randint(0,1) for i in range(n_test)]
+y_proba_test = [random.random() for i in range(n_test)]
 score_test = np.random.normal(mu_test, sigma_test, n_test)
-
 
 ```
 
@@ -172,7 +172,7 @@ Roc曲线:
 ```python
 from score_card_model.utils import model_roc_auc
 
-model_roc_auc(y_true=y_true, y_proba=y_proba, is_plot=True)
+model_roc_auc(y_true=y_true_train, y_proba=y_proba_train, is_plot=True)
 ```
 
 ![roc曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_roc_auc.png)
@@ -182,7 +182,7 @@ Ks曲线:
 ```python
 from score_card_model.utils import model_ks
 
-model_ks(y_true=y_true, y_pred=y_pred, y_proba=y_proba, is_plot=True)
+model_ks(y_true=y_true_train, y_pred=y_pred_train, y_proba=y_proba_train, is_plot=True)
 ```
 
 ![roc曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_ks.png)
@@ -192,7 +192,7 @@ Gini系数和Lorenz曲线:
 ```python
 from score_card_model.utils import model_gini
 
-model_gini(y_true=y_true, y_proba=y_proba, is_plot=True)
+model_gini(y_true=y_true_train, y_proba=y_proba_train, is_plot=True)
 ```
 
 ![roc曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_gini.png)
@@ -208,16 +208,19 @@ psi, df_psi = model_psi(score_train=score_train, score_test=score_test)
 
 Lift:
 ```python
-from score_card_model.utils import model_psi
-import numpy as np
-import random
+from score_card_model.utils import model_lift
 
-# 用正态分布随机数模拟分数的分布
-n_train, mu_train, sigma_train = 1000, 500, 80
-y_true = [random.randint(0,1) for i in range(n_train)]
-y_score = np.random.normal(mu_train, sigma_train, n_train).astype(int)
-
-# 计算lift及绘图
-df = model_lift(y_true=y_true, y_score=y_score,is_plot=True)
+df = model_lift(y_true=y_true_train, y_score=y_score_train, is_plot=True)
 ```
 ![Lift曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_lift.png)
+
+
+
+score分数 & 特征的分布:
+
+```python
+from score_card_model.utils import plot_score_distribution
+
+plot_score_badrate(y=y_true_train, score=score_train)
+```
+![score分数 & 特征的分布](https://github.com/skykiseki/score_card_model/blob/main/pics/plot_score_distribution.png)

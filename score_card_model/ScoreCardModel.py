@@ -1,6 +1,7 @@
 import statsmodels.api as sm
 import numpy as np
 import warnings
+import matplotlib.pyplot as plt
 from . import utils
 from tqdm import tqdm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
@@ -371,8 +372,7 @@ class ScoreCardModel(object):
             dict_col_to_bins = self.dict_cols_to_bins[col]
             dict_bins_to_woe = self.dict_woe[col]
 
-            # 开始转化特征
-            # 离散型直接转化, 连续型则需要做个转化
+            # 开始转化特征, 离散型直接转化, 连续型则需要做个转化
             if col in self.cols_cont:
                 df_woe[col] = df_woe[col].apply(lambda x: utils.value_to_intervals(value=x, dict_valstoinv=dict_col_to_bins))
 
@@ -811,7 +811,7 @@ class ScoreCardModel(object):
 
         return scores
 
-    def plot_feats_badrate(self, df, use_cols=None):
+    def plot_feats_badrate(self, df, use_cols=None, dict_plot_params=None):
         """
         对数据集的各个col绘制badrate分布图
 
@@ -826,25 +826,78 @@ class ScoreCardModel(object):
         Just plot
 
         """
+        # 处理参数
+        if dict_plot_params is None:
+            dict_plot_params = {'fontsize': 15,
+                                'figsize': (15, 30),
+                                'linewidth': 3,
+                                'markersize': 15}
+
+        if 'fontsize' in dict_plot_params.keys():
+            fontsize = dict_plot_params['fontsize']
+        else:
+            fontsize = 15
+
+        if 'figsize' in dict_plot_params.keys():
+            figsize = dict_plot_params['figsize']
+        else:
+            figsize = (15, 20)
+
+        if 'linewidth' in dict_plot_params.keys():
+            linewidth = dict_plot_params['linewidth']
+        else:
+            linewidth = 3
+
+        if 'markersize' in dict_plot_params.keys():
+            markersize = dict_plot_params['markersize']
+        else:
+            markersize = 15
+
+
         # 先检查target变量是否存在
         if self.target not in df.columns:
             raise Exception('输入的Dataframe不存在目标变量{0}.'.format(self.target))
+
+        cols = [self.target]
 
         # 筛选出使用的特征列
         if use_cols:
             if len(use_cols) == 0:
                 raise Exception('输入的参数use_cols为空.')
             else:
-                ## 可能有冗余奇怪的列不在分箱的过程中, 会被筛掉, 先不添加target进去
-                cols = [col for col in use_cols if col in self.df.columns and col != self.target]
+                ## 可能有冗余奇怪的列不在分箱的过程中, 会被筛掉
+                for col in use_cols:
+                    if col in self.df.columns:
+                        cols.append(col)
+        else:
+            for col in df.columns:
+                if col in self.df.columns:
+                    cols.append(col)
 
-                if len(cols) == 0:
-                    raise Exception('输入的参数use_cols无可用的列.')
+        if len(cols) - 1 == 0:
+            raise Exception('无可用的列,重新检查输入的df或者use_cols')
 
-                cols.append(self.target)
+        df = df.loc[:, cols]
 
-            df = df.loc[:, cols]
+        # 初始化画布
+        fig, ax = plt.subplots(len(cols) - 1, 1, figsize=figsize)
 
-        #
+        # 开始遍历
+        for col in cols:
+            if col == self.target:
+                continue
+
+            # 特征的映射字典和映射的woe, {val1: 分组序值1, val2: 分组序值2}
+            dict_col_to_bins = self.dict_cols_to_bins[col]
+
+            # 开始转化特征, 离散型直接转化, 连续型则需要做个转化
+            if col in self.cols_cont:
+                df[col] = df[col].apply(lambda x: utils.value_to_intervals(value=x, dict_valstoinv=dict_col_to_bins))
+
+            df[col] = df[col].map(dict_col_to_bins)
+
+            # 开始绘图
+
+
 
 
