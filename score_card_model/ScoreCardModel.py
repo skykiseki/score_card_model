@@ -839,7 +839,7 @@ class ScoreCardModel(object):
 
         return scores
 
-    def plot_feats_badrate(self, df, use_cols=None, dict_plot_params=None):
+    def plot_feats_badrate(self, df, use_cols=None, dict_plot_params=None, factor=None):
         """
         对数据集的各个col绘制badrate分布图
 
@@ -849,6 +849,10 @@ class ScoreCardModel(object):
 
         use_cols: list, 选择使用的列, 如果为None, 则为全部进行分箱和统计绘图
 
+        dict_plot_params: dict, 绘图的参数
+
+        factor: float
+
         Returns:
         -------
         Just plot
@@ -856,21 +860,21 @@ class ScoreCardModel(object):
         """
         # 处理参数
         if dict_plot_params is None:
-            dict_plot_params = {'fontsize': 15,
-                                'figsize': (15, 30),
+            dict_plot_params = {'fontsize': 12,
+                                'figsize': (15, 8),
                                 'linewidth': 3,
-                                'markersize': 15,
+                                'markersize': 12,
                                 'markeredgewidth': 6}
 
         if 'fontsize' in dict_plot_params.keys():
             fontsize = dict_plot_params['fontsize']
         else:
-            fontsize = 15
+            fontsize = 12
 
         if 'figsize' in dict_plot_params.keys():
             figsize = dict_plot_params['figsize']
         else:
-            figsize = (15, 20)
+            figsize = (15, 8)
 
         if 'linewidth' in dict_plot_params.keys():
             linewidth = dict_plot_params['linewidth']
@@ -880,7 +884,7 @@ class ScoreCardModel(object):
         if 'markersize' in dict_plot_params.keys():
             markersize = dict_plot_params['markersize']
         else:
-            markersize = 15
+            markersize = 12
 
         if 'markeredgewidth' in dict_plot_params.keys():
             markeredgewidth = dict_plot_params['markeredgewidth']
@@ -892,29 +896,35 @@ class ScoreCardModel(object):
         if self.target not in df.columns:
             raise Exception('输入的Dataframe不存在目标变量{0}.'.format(self.target))
 
-        cols = [self.target]
-
         # 筛选出使用的特征列
         if use_cols:
             if len(use_cols) == 0:
                 raise Exception('输入的参数use_cols为空.')
+            elif self.target not in use_cols:
+                raise Exception('输入的参数use_cols不包含目标变量{0}.'.format(self.target))
             else:
-                ## 可能有冗余奇怪的列不在分箱的过程中, 会被筛掉
-                for col in use_cols:
-                    if col in self.df.columns:
-                        cols.append(col)
-        else:
-            for col in df.columns:
-                if col in self.df.columns:
-                    cols.append(col)
+                df = df.loc[:, use_cols]
 
-        if len(cols) - 1 == 0:
-            raise Exception('无可用的列,重新检查输入的df或者use_cols')
+        # 对df进行分组
+        df_bins = self.trans_df_to_bins(df=df)
 
-        df = df.loc[:, cols]
+        cols = df_bins.columns.drop(self.target).tolist()
 
         # 初始化画布
-        fig, ax = plt.subplots(len(cols) - 1, 1, figsize=figsize)
+        if not factor:
+            factor = len(cols) * 0.8
+
+        fontsize *= factor
+        figsize = (figsize[0], figsize[1] * factor)
+        linewidth *= factor
+        markersize *= factor
+        markeredgewidth *= factor
+
+        if len(cols) > 1:
+            fig, ax = plt.subplots(len(cols), 1, figsize=figsize)
+        else:
+            fig, ax = plt.subplots(1, 1, figsize=figsize)
+            ax = [ax]
 
         # 开始遍历
         for i in range(len(cols)):
@@ -923,19 +933,12 @@ class ScoreCardModel(object):
             if col == self.target:
                 continue
 
-            # 特征的映射字典和映射的woe, {val1: 分组序值1, val2: 分组序值2}
-            dict_col_to_bins = self.dict_cols_to_bins[col]
-
-            # 开始转化特征, 离散型直接转化, 连续型则需要做个转化
             if col in self.cols_cont:
-                df[col] = df[col].apply(lambda x: utils.value_to_intervals(value=x, dict_valstoinv=dict_col_to_bins))
-
-            df[col] = df[col].map(dict_col_to_bins)
+                dict_no_to_group = dict(map(reversed, self.dict_cols_to_bins[col].items()))
+                df_bins[col] = df_bins[col].map(dict_no_to_group)
 
             # 创建regroup_badrate
-            regroup_badrate = utils.bin_badrate(df, col_name=col + '_groupno', target=self.target)
-
-            return regroup_badrate
+            regroup_badrate = utils.bin_badrate(df_bins, col_name=col, target=self.target)
 
             # 创建样本占比
             regroup_badrate['pnt_feat_vals'] = regroup_badrate['num_feat_vals'] / df.shape[0]
@@ -943,27 +946,28 @@ class ScoreCardModel(object):
             # 注意regroup_badrate需要排序
             regroup_badrate = regroup_badrate.sort_index()
 
-            fontdict={'fontsize': fontsize}
             # 开始绘图
+            fontdict = {'fontsize': fontsize}
+
             ax[i].bar(regroup_badrate.index, regroup_badrate['pnt_feat_vals'])
             ax[i].set_ylim((0, 1))
             ax[i].set_title("{0}' Badrate".format(col), fontdict=fontdict)
             ax[i].set_xticks(regroup_badrate.index)
+            ax[i].set_xlabel('Group', fontdict=fontdict)
+            ax[i].set_ylabel('Pct. of bins', fontdict=fontdict)
+            ax[i].tick_params(labelsize=fontsize)
+
             for x, y, z in zip(list(regroup_badrate.index),
                                list(regroup_badrate['pnt_feat_vals'] / 2),
                                list(regroup_badrate['pnt_feat_vals'])):
+
                 ax[i].text(x, y, '{0:.2f}%'.format(z * 100),
                            ha='center',
                            va='center',
                            fontdict=fontdict,
                            color='white')
 
-            if col not in self.cols_disc:
-                list_xlabel = [k for k, v in sorted(dict_col_to_bins[col].items(), key=lambda x: x[1])]
-                ax[i].set_xticklabels(list_xlabel, fontdict=fontdict)
-            ax[i].set_xlabel('Group', fontdict=fontdict)
-            ax[i].set_ylabel('Pct. of feat value', fontdict=fontdict)
-
+            # 另外一轴
             ax_twin = ax[i].twinx()
             ax_twin.plot(regroup_badrate.index, regroup_badrate['bad_rate'],
                          linewidth=linewidth,
@@ -985,7 +989,12 @@ class ScoreCardModel(object):
 
             ax_twin.set_ylim((0, regroup_badrate['bad_rate'].max() + 0.1))
             ax_twin.set_ylabel('Badrate', fontdict=fontdict)
-            ax_twin.legend(loc='best', fontsize='x-large')
+            ax_twin.legend(loc='upper left', fontsize=fontsize)
+
+            ax_twin.tick_params(labelsize=fontsize)
+
+        # 铺满整个画布
+        fig.tight_layout()
 
 
 
