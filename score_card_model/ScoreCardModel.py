@@ -812,7 +812,3 @@ class ScoreCardModel(object):
         return scores
 
 
-
-
-
-

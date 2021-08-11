@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import seaborn as sns
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from sklearn.metrics import roc_curve, roc_auc_score
@@ -1745,3 +1746,108 @@ def model_lift(y_true, y_score, n_split=10, is_plot=False, dict_plot_params=None
         plt.legend(['Lift'], loc='upper left', fontsize='large')
 
     return lift_regroup
+
+
+
+
+def plot_score_badrate(y, score, dict_plot_params=None):
+    """
+    绘制score的频数分布, score的01频数分布, badrate与score的曲线
+
+    Parameters:
+    ----------
+    y: list, 数据集的目标变量(Y标), 可以是任意集合的
+
+    scores: list, 数据集的分数
+
+
+    Returns:
+    -------
+    Just plot.
+
+    """
+    # 转换类型
+    y, score = list(y), list(score)
+
+    # 处理参数
+    if dict_plot_params is None:
+        dict_plot_params = {'fontsize': 15,
+                            'figsize': (15, 20),
+                            'linewidth': 3,
+                            'markersize': 12}
+
+    if 'fontsize' in dict_plot_params.keys():
+        fontsize = dict_plot_params['fontsize']
+    else:
+        fontsize = 15
+
+    if 'figsize' in dict_plot_params.keys():
+        figsize = dict_plot_params['figsize']
+    else:
+        figsize = (15, 20)
+
+    if 'linewidth' in dict_plot_params.keys():
+        linewidth = dict_plot_params['linewidth']
+    else:
+        linewidth = 3
+
+    if 'markersize' in dict_plot_params.keys():
+        markersize = dict_plot_params['markersize']
+    else:
+        markersize = 12
+
+    # 构造df
+    df = pd.DataFrame({'y': y, 'score': score})
+
+    # 绘制一个3X1的画布
+    fig, ax = plt.subplots(3, figsize=figsize)
+
+    score_min = df['score'].min() // 100 * 100
+    score_max = df['score'].max() // 100 * 100
+    x_range = range(score_min, score_max, 20)
+    x_linrange = np.linspace(df['score'].min(), df['score'].max(), 20)
+
+    fontdict = {'fontsize': fontsize}
+
+    # 第一个绘制评分频数分布
+    sns.distplot(df['score'], ax=ax[0])
+    ax[0].set_title('Distribution of scores', fontsize=fontsize)
+    # ax[0].set_xticks(x_range)
+    ax[0].set_xlabel('score', fontdict=fontdict)
+
+    # 第二个绘制0,1两类的频数分布
+    df['lin_bins'] = pd.cut(df['score'], x_linrange)
+    sns.distplot(df.loc[df['y'] == 0, 'score'], ax=ax[1], hist=False, label='0', kde_kws={'lw': linewidth})
+
+    sns.distplot(df.loc[df['y'] == 1, 'score'], ax=ax[1], hist=False, label='1', kde_kws={'lw': linewidth})
+
+    ax[1].set_title('Distibution of scores(0,1)', fontsize=fontsize)
+    # ax[1].set_xticks(x_range)
+    ax[1].set_xlabel('score', fontdict=fontdict)
+    ax[1].legend(fontsize='large')
+
+    # 第三个绘制badrate的频数分布
+    regroup_badrate = bin_badrate(df, col_name='lin_bins', target='y')
+    twinx_ax2 = ax[2].twinx()
+    sns.distplot(df['score'], bins=x_linrange,
+                 kde=False,
+                 ax=ax[2],
+                 hist_kws={'rwidth': 0.9})
+
+    twinx_ax2.plot(x_linrange[1:], regroup_badrate['bad_rate'].to_list(),
+                   linestyle='--',
+                   linewidth=linewidth,
+                   marker='x',
+                   markersize=markersize,
+                   markeredgewidth=5,
+                   c='r',
+                   label='badrate')
+
+    ax[2].set_title('Distibution of scores & badrates', fontsize=fontsize)
+    ax[2].set_xlabel('score', fontdict=fontdict)
+    twinx_ax2.set_ylabel('badrate', fontdict=fontdict)
+
+    # 铺满整个画布
+    fig.tight_layout()
+
+
