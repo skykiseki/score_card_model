@@ -344,6 +344,44 @@ class ScoreCardModel(object):
         self.dict_iv.update(self.dict_disc_iv)
         self.dict_iv.update(self.dict_cont_iv)
 
+    def trans_df_to_bins(self, df):
+        """
+        对样本进行分组
+
+        Parameters:
+        ----------
+        df:需要做分组转化的dataframe(注意, 这里会仅筛选出进入了分箱过程的特征)
+
+
+        Returns:
+        -------
+        df_bins: bins后的dataframe
+        """
+        # 检查在df中的特征, 仅选取进入了分箱过程的列
+        cols = [col for col in df.columns if col in self.df.columns]
+
+        df_bins = df.loc[:, cols]
+
+        for col in df_bins.columns:
+            # 遍历处理特征, 注意排除target
+            if col == self.target:
+                continue
+
+            # 特征的映射字典和映射的woe, {val1: 分组序值1, val2: 分组序值2}
+            # 分组序值对应的woe值 {分组序值1: woe1, 分组序值2: woe2}
+            dict_col_to_bins = self.dict_cols_to_bins[col]
+
+            # 开始转化特征, 离散型直接转化, 连续型则需要做个转化
+            if col in self.cols_cont:
+                df_bins[col] = df_bins[col].apply(
+                    lambda x: utils.value_to_intervals(value=x, dict_valstoinv=dict_col_to_bins))
+
+            df_bins[col] = df_bins[col].map(dict_col_to_bins)
+
+        return df_bins
+
+
+
     def trans_df_to_woe(self, df):
         """
         对样本进行woe转化
@@ -357,26 +395,16 @@ class ScoreCardModel(object):
         df_woe: woe编码后的dataframe
         """
         # 检查在df中的特征, 仅选取进入了分箱过程的列
-        cols = [col for col in df.columns if col in self.df.columns]
+        df_woe = self.trans_df_to_bins(df=df)
 
-
-        df_woe = df.loc[:, cols]
-
-        for col in tqdm(df_woe.columns, desc='Woe Transforming'):
+        for col in df_woe.columns:
             # 遍历处理特征, 注意排除target
             if col == self.target:
                 continue
 
-            # 特征的映射字典和映射的woe, {val1: 分组序值1, val2: 分组序值2}
-            # 分组序值对应的woe值 {分组序值1: woe1, 分组序值2: woe2}
-            dict_col_to_bins = self.dict_cols_to_bins[col]
             dict_bins_to_woe = self.dict_woe[col]
 
-            # 开始转化特征, 离散型直接转化, 连续型则需要做个转化
-            if col in self.cols_cont:
-                df_woe[col] = df_woe[col].apply(lambda x: utils.value_to_intervals(value=x, dict_valstoinv=dict_col_to_bins))
-
-            df_woe[col] = df_woe[col].map(dict_col_to_bins).map(dict_bins_to_woe)
+            df_woe[col].map(dict_bins_to_woe)
 
         return df_woe
 
@@ -936,18 +964,26 @@ class ScoreCardModel(object):
 
             ax_twin = ax[i].twinx()
             ax_twin.plot(regroup_badrate.index, regroup_badrate['bad_rate'],
-                         linewidth=3, linestyle='--', color='r',
-                         marker='x', markersize=markersize, markeredgewidth=markeredgewidth,
+                         linewidth=3,
+                         linestyle='--',
+                         color='r',
+                         marker='x',
+                         markersize=markersize,
+                         markeredgewidth=markeredgewidth,
                          label='Badrate')
             for x, y, z in zip(list(regroup_badrate.index),
                                list(regroup_badrate['bad_rate']),
                                list(regroup_badrate['bad_rate'])):
+
                 ax_twin.text(x, y + 0.02, '{0:.2f}%'.format(z * 100),
-                             ha='center', va='center', fontdict=fontdict, color='r')
-                
+                             ha='center',
+                             va='center',
+                             fontdict=fontdict,
+                             color='r')
+
             ax_twin.set_ylim((0, regroup_badrate['bad_rate'].max() + 0.1))
             ax_twin.set_ylabel('Badrate', fontdict=fontdict)
-            ax_twin.legend(loc='best', fontsize='xx-large')
+            ax_twin.legend(loc='best', fontsize='x-large')
 
 
 
