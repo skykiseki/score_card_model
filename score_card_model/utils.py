@@ -1860,6 +1860,3 @@ def plot_score_distribution(y, score, dict_plot_params=None):
 
     # 铺满整个画布
     fig.tight_layout()
-
-
-
