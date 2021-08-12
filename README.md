@@ -222,10 +222,10 @@ score分数:
 ```python
 from score_card_model.utils import plot_score_distribution
 
-plot_score_badrate(y=y_true_train, score=score_train)
+plot_score_distribution(y=y_true_train, score=score_train)
 ```
 ![score的分布](https://github.com/skykiseki/score_card_model/blob/main/pics/plot_score_distribution_1.png)
-![sscore的分布](https://github.com/skykiseki/score_card_model/blob/main/pics/plot_score_distribution_2.png)
+![score的分布](https://github.com/skykiseki/score_card_model/blob/main/pics/plot_score_distribution_2.png)
 ![score的分布](https://github.com/skykiseki/score_card_model/blob/main/pics/plot_score_distribution_3.png)
 
 
