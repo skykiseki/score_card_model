@@ -935,6 +935,7 @@ class ScoreCardModel(object):
             if col == self.target:
                 continue
 
+            # 连续型特征需要做区间转换
             if col in self.cols_cont:
                 dict_no_to_group = dict(map(reversed, self.dict_cols_to_bins[col].items()))
                 df_bins[col] = df_bins[col].map(dict_no_to_group)
@@ -946,7 +947,7 @@ class ScoreCardModel(object):
             regroup_badrate['pnt_feat_vals'] = regroup_badrate['num_feat_vals'] / df.shape[0]
 
             # 注意regroup_badrate需要排序
-            regroup_badrate = regroup_badrate.sort_index()
+            # regroup_badrate = regroup_badrate.sort_index()
 
             # 开始绘图
             fontdict = {'fontsize': fontsize}
@@ -954,7 +955,9 @@ class ScoreCardModel(object):
             ax[i].bar(regroup_badrate.index, regroup_badrate['pnt_feat_vals'])
             ax[i].set_ylim((0, 1))
             ax[i].set_title("{0}' Badrate".format(col), fontdict=fontdict)
+
             ax[i].set_xticks(regroup_badrate.index)
+
             ax[i].set_xlabel('Group', fontdict=fontdict)
             ax[i].set_ylabel('Pct. of bins', fontdict=fontdict)
             ax[i].tick_params(labelsize=fontsize)
