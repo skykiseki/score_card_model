@@ -222,7 +222,9 @@ score分数:
 ```python
 from score_card_model.utils import plot_score_distribution
 
-plot_score_distribution(y=y_true_train, score=score_train)
+
+# 实际应用中大多score只是近似正态，这个时候可以通过调大bw_adjust来使得平滑
+plot_score_distribution(y=y_true_train, score=score_train, dict_plot_params = {'bw_adjust': 3})
 ```
 ![score的分布](https://github.com/skykiseki/score_card_model/blob/main/pics/plot_score_distribution_1.png)
 ![score的分布](https://github.com/skykiseki/score_card_model/blob/main/pics/plot_score_distribution_2.png)
