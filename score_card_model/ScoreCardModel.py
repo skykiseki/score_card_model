@@ -638,7 +638,8 @@ class ScoreCardModel(object):
                 # 剔除这个特征
                 df0 = df.drop(feat, axis=1)
                 # 重新计算vif
-                mat_df0 = df0.as_matrix()
+                # mat_df0 = df0.as_matrix()
+                mat_df0 = df0.values
                 list_vif = [variance_inflation_factor(mat_df0, i) for i in range(df0.shape[1])]
                 # 如果list_vif中不存在大于阈值vif的情况, 则表示剔除这个特征有效解决共线性
                 if max(list_vif) < vif_thres:
@@ -658,7 +659,8 @@ class ScoreCardModel(object):
             cols_filter.add(feat_candi_miniv)
             # 剔除该特征
             df = df.drop(feat_candi_miniv, axis=1)
-            mat_vif = df.as_matrix()
+            # mat_vif = df.as_matrix()
+            mat_vif = df.values
 
             # 重新计算
             list_featnames = list(df.columns)
