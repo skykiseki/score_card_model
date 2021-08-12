@@ -25,7 +25,7 @@ GitHub: https://github.com/skykiseki/score_card_model
 """
 
 setup(name='score-card-model',
-      version='1.5.1',
+      version='1.5.2',
       description='Risk Score Card Model',
       long_description=LONGDOC,
       long_description_content_type="text/markdown",

@@ -744,9 +744,6 @@ def chi2_cutting_discrete(df_data, feat_list, target,
         raise Exception('Input is not a dataframe.')
     elif df_data.shape[0] == 0:
         raise Exception('The dataframe has a row num of 0.')
-    # 判断分箱特征列表是否为空
-    elif (len(feat_list) == 0) or (feat_list is None):
-        raise Exception('Empty list is inputed.')
     # 判断最大分箱数max_intervals是否为正整数
     elif (max_intervals < 0) or not isinstance(max_intervals, int):
         raise Exception('Max_intervals is incorrect.')
@@ -754,7 +751,7 @@ def chi2_cutting_discrete(df_data, feat_list, target,
     elif (min_pnt <= 0) or (min_pnt >= 1):
         raise Exception('Min_pnt is incorrect.')
 
-    # 该函数不允许有序性存在特殊值
+    # 该函数不允许有序型存在特殊值
     for key in discrete_order.keys():
         if key in special_feat_val.keys():
             str_exception = "'%s' is orderly feature and exists in dictionary of speacial values." % key
@@ -1006,9 +1003,6 @@ def chi2_cutting_continuous(df_data, feat_list, target,
         raise Exception('Input is not a dataframe.')
     elif df_data.shape[0] == 0:
         raise Exception('The dataframe has a row num of 0.')
-    # 判断分箱特征列表是否为空
-    elif (len(feat_list) == 0) or (feat_list is None):
-        raise Exception('Empty list is inputed.')
     # 判断最大分箱数max_intervals是否为正整数
     elif (max_intervals < 0) or not isinstance(max_intervals, int):
         raise Exception('Max_intervals is incorrect.')
