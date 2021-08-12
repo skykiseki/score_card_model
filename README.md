@@ -50,6 +50,7 @@ scm_obj = ScoreCardModel(df=df_data, target='loan_status')
 
 # sp_vals_cols, 特殊值字典, 格式为{'特征名':[特征值]}
 #PS:注意,当前的版本仅支持数值类以-1作为特殊值,且数值型特征必须大于等于0(有时间再修改)
+#有序型类别特征不支持存在空值, 切记
 
 # const_cols_ratio, 判断常值特征的阈值
 # max_intervals, 最大分箱数(含特殊值箱, 特殊值单独成箱)
