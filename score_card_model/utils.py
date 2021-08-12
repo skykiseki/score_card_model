@@ -1766,7 +1766,8 @@ def plot_score_distribution(y, score, dict_plot_params=None):
         dict_plot_params = {'fontsize': 15,
                             'figsize': (15, 20),
                             'linewidth': 3,
-                            'markersize': 12}
+                            'markersize': 12,
+                            'bw_adjust': 1}
 
     if 'fontsize' in dict_plot_params.keys():
         fontsize = dict_plot_params['fontsize']
@@ -1788,6 +1789,11 @@ def plot_score_distribution(y, score, dict_plot_params=None):
     else:
         markersize = 12
 
+    if 'bw_adjust' in dict_plot_params.keys():
+        bw_adjust = dict_plot_params['bw_adjust']
+    else:
+        bw_adjust = 1
+
     # 构造df
     df = pd.DataFrame({'y': y, 'score': score})
 
@@ -1797,16 +1803,16 @@ def plot_score_distribution(y, score, dict_plot_params=None):
     fontdict = {'fontsize': fontsize}
 
     # 第一个绘制评分频数分布
-    sns.kdeplot(df['score'], ax=ax[0], linewidth=linewidth)
+    sns.kdeplot(df['score'], ax=ax[0], linewidth=linewidth, bw_adjust=bw_adjust)
     ax[0].grid(linestyle='--', alpha=0.5)
     ax[0].set_title('Distribution of scores', fontsize=fontsize)
     ax[0].set_xlabel('Score', fontdict=fontdict)
     ax[0].set_ylabel('Density', fontdict=fontdict)
 
     # 第二个绘制0,1两类的频数分布
-    sns.kdeplot(df.loc[df['y'] == 0, 'score'], ax=ax[1], label='y=0', linewidth=linewidth)
+    sns.kdeplot(df.loc[df['y'] == 0, 'score'], ax=ax[1], label='y=0', linewidth=linewidth, bw_adjust=bw_adjust)
 
-    sns.kdeplot(df.loc[df['y'] == 1, 'score'], ax=ax[1], label='y=1', linewidth=linewidth)
+    sns.kdeplot(df.loc[df['y'] == 1, 'score'], ax=ax[1], label='y=1', linewidth=linewidth, bw_adjust=bw_adjust)
 
     ax[1].set_title('Distibution of scores(0,1)', fontsize=fontsize)
     ax[1].grid(linestyle='--', alpha=0.5)
