@@ -935,19 +935,27 @@ class ScoreCardModel(object):
             if col == self.target:
                 continue
 
-            # 连续型特征需要做区间转换
-            if col in self.cols_cont:
-                dict_no_to_group = dict(map(reversed, self.dict_cols_to_bins[col].items()))
-                df_bins[col] = df_bins[col].map(dict_no_to_group)
-
             # 创建regroup_badrate
             regroup_badrate = utils.bin_badrate(df_bins, col_name=col, target=self.target)
+
+            # 创建分组编号
+            regroup_badrate['bin_no'] = regroup_badrate.index
 
             # 创建样本占比
             regroup_badrate['pnt_feat_vals'] = regroup_badrate['num_feat_vals'] / df.shape[0]
 
+            # 连续型特征需要做区间转换
+            if col in self.cols_cont:
+                dict_no_to_group = dict(map(reversed, self.dict_cols_to_bins[col].items()))
+                regroup_badrate['bins'] = regroup_badrate['bin_no'].map(dict_no_to_group)
+            else:
+                regroup_badrate['bins'] = regroup_badrate['bin_no']
+
+            # 反转index
+            regroup_badrate = regroup_badrate.set_index('bins')
+
             # 注意regroup_badrate需要排序
-            # regroup_badrate = regroup_badrate.sort_index()
+            regroup_badrate = regroup_badrate.sort_values(by='bin_no')
 
             # 开始绘图
             fontdict = {'fontsize': fontsize}
