@@ -404,7 +404,7 @@ class ScoreCardModel(object):
 
             dict_bins_to_woe = self.dict_woe[col]
 
-            df_woe[col].map(dict_bins_to_woe)
+            df_woe[col] = df_woe[col].map(dict_bins_to_woe)
 
         return df_woe
 
