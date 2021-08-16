@@ -798,7 +798,13 @@ class ScoreCardModel(object):
         score: int, 分数
 
         """
-        # 1e-9是为了平滑分母, 避免分母为0
+        # 1e-6是为了平滑分母, 避免分母为0或者分子为0
+        if proba == 0:
+            proba += 1e-6
+
+        if proba == 1:
+            proba -= 1e-6
+
         odds = proba / (1 - proba + 1e-9)
         score = int(base_score - pdo / np.log(2) * np.log(odds))
 
