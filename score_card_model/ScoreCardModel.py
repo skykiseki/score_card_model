@@ -952,6 +952,7 @@ class ScoreCardModel(object):
                 regroup_badrate['bins'] = regroup_badrate['bin_no']
 
             # 反转index
+            regroup_badrate['bins'] = regroup_badrate['bins'].astype(str)
             regroup_badrate = regroup_badrate.set_index('bins')
 
             # 注意regroup_badrate需要排序
