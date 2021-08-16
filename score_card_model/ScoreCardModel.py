@@ -798,7 +798,8 @@ class ScoreCardModel(object):
         score: int, 分数
 
         """
-        odds = proba / (1 - proba)
+        # 1e-9是为了平滑分母, 避免分母为0
+        odds = proba / (1 - proba + 1e-9)
         score = int(base_score - pdo / np.log(2) * np.log(odds))
 
         return score
@@ -839,7 +840,7 @@ class ScoreCardModel(object):
         # 计算分数
         scores = [self.proba_to_score(proba=p, base_score=base_score, pdo=pdo) for p in probas]
 
-        return scores
+        return probas, scores
 
     def plot_feats_badrate(self, df, use_cols=None, dict_plot_params=None, factor=None):
         """
