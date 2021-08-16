@@ -142,7 +142,7 @@ df_woe = scm_obj.trans_df_to_woe(df=df_data.loc[:, some_features])
 
 # 获取分数列表,注意这个地方必须要包含所有的入模特征
 # estimator必须包含predict_proba方法
-scores = scm_obj.get_df_scores(df_woe=df_woe_test, estimator=estimator_already_fitted)
+y_proba, scores = scm_obj.get_df_scores(df_woe=df_woe_test, estimator=estimator_already_fitted)
 
 ```
 
