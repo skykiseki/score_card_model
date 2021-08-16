@@ -820,6 +820,8 @@ class ScoreCardModel(object):
 
         Returns:
         -------
+        probas: list, 拟合的概率列表
+
         scores: list, 拟合的分数列表
 
 
