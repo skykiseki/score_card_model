@@ -101,10 +101,6 @@ dict_woe = scm_obj.dict_woe
 # 获取woe转化后的dataframe
 df_woe = scm_obj.df_woe
 
-## 基于显著性进行特征筛选
-cols_pval_higher = scm_obj.filter_df_woe_pvalue(df_woe=df_woe, pval_thres=0.05)
-df_woe = df_woe.drop(cols_pval_higher, axis=1)
-
 ```
 
 5.特征筛选:
