@@ -1,7 +1,10 @@
 import statsmodels.api as sm
 import numpy as np
+import pandas as pd
 import warnings
+import dill
 import matplotlib.pyplot as plt
+from sklearn.linear_model import LogisticRegression
 from . import utils
 from tqdm import tqdm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
@@ -14,9 +17,7 @@ class ScoreCardModel(object):
 
     Attributes:
     ----------
-    df: dataframe,输入的训练集
-    df_woe: dataframe, 输出的woe训练集
-
+    cols: list, 建模过程中涉及到的columns名称
     target: str, Y标特征
 
     cols_disc: list,离散型特征
@@ -46,28 +47,34 @@ class ScoreCardModel(object):
     const_cols_ratio: float, 常值字段的阈值%
     const_cols: list, 常值字段
 
-    self.disc_cols_cut: list, 参与无序分箱少离散 & 有序离散分箱的特征,
-    self.cont_cols_cut: list, 参与无序分箱多离散 & 连续型分箱的特征
+    disc_cols_cut: list, 参与无序分箱少离散 & 有序离散分箱的特征,
+    cont_cols_cut: list, 参与无序分箱多离散 & 连续型分箱的特征
 
-    self.dict_disc_cols_to_bins: dict, 离散特征的分组取值
-    self.dict_disc_iv: dict, 离散特征的woe编码后的IV
-    self.dict_disc_woe: dict, 离散特征分组后的woe值
+    dict_disc_cols_to_bins: dict, 离散特征的分组取值
+    dict_disc_iv: dict, 离散特征的woe编码后的IV
+    dict_disc_woe: dict, 离散特征分组后的woe值
 
-    self.dict_cont_cols_to_bins: dict, 连续特征的分组取值
-    self.dict_cont_iv: dict, 连续特征的woe编码后的IV
-    self.dict_cont_woe: dict, 连续特征分组后的woe值
+    dict_cont_cols_to_bins: dict, 连续特征的分组取值
+    dict_cont_iv: dict, 连续特征的woe编码后的IV
+    dict_cont_woe: dict, 连续特征分组后的woe值
 
-    self.dict_cols_to_bins: dict, 所有特征的分组取值
-    self.dict_iv: dict, 所有特征的IV
-    self.dict_woe: dict, 所有特征的woe值
+    dict_cols_to_bins: dict, 所有特征的分组取值
+    dict_iv: dict, 所有特征的IV
+    dict_woe: dict, 所有特征的woe值
 
-    self.md_feats: list, 入模特征
+    md_feats: list, 入模特征
+
+    estimator: model,模型对象,必须包含predict_proba, 当前版本只支持LR
+
+    estimator_is_fit: bool, 模型是否已经fit
+
+    _coefs: dict, 对应的LR系数, 其中包含截距项
+
 
     """
-    def __init__(self, df, target):
-        self.df = df
-        self.df_woe = None
+    def __init__(self, target, **estimator_kwargs):
 
+        self.cols = None
         self.target = target
 
         self.cols_disc = []
@@ -89,7 +96,7 @@ class ScoreCardModel(object):
         self.mono_expect = None
 
         self.pipe_options = ['Check_Target', 'Check_None', 'Check_Const_Cols', 'Check_Cols_Types',
-                             'Add_Mono_Expect','Chi2_Cutting', 'Woe_Transform']
+                             'Add_Mono_Expect','Chi2_Cutting']
         self.pinelines = []
 
         self.const_cols = []
@@ -110,6 +117,17 @@ class ScoreCardModel(object):
         self.dict_woe = {}
 
         self.md_feats = None
+
+        # 如果传入的模型对象是None, 则默认用sklearn的逻辑回归
+        self.estimator = LogisticRegression(random_state=0,
+                                            fit_intercept=True,
+                                            n_jobs=-1,
+                                            **estimator_kwargs)
+
+        self.estimator_is_fit = False
+
+        self._coefs = {}
+
 
     def _add_min_pnt(self, min_pnt):
         """
@@ -193,23 +211,24 @@ class ScoreCardModel(object):
         """
         self.sp_vals_cols = sp_vals_cols
 
-    def _get_cols_type(self):
+    def _get_cols_type(self, df):
         """
         对特征进行分类, 当前为识别col类型进行识别, 但是有序与无序的类别性特征需要手工进行输入,
         object类为类别型特征, 其余为数值型特征
 
         Parameters:
         ----------
+        df: dataframe, 待处理的dataframe
 
         Returns:
         -------
         self
 
         """
-        for col in self.df.columns:
+        for col in df.columns:
             # 注意剔除Y标
             if col != self.target:
-                col_dtype = self.df[col].dtype
+                col_dtype = df[col].dtype
                 ## 先整理类别型特征和连续型特征
                 if col_dtype == 'O':
                     self.cols_disc.append(col)
@@ -219,7 +238,7 @@ class ScoreCardModel(object):
                         self.cols_disc_disord.append(col)
 
                         #### 再整理类别型特征中是属于无序分箱少, 还是属于无序分箱多
-                        if len(set(self.df[col])) <= self.max_intervals:
+                        if len(set(df[col])) <= self.max_intervals:
                             self.cols_disc_disord_less.append(col)
                         else:
                             self.cols_disc_disord_more.append(col)
@@ -227,7 +246,7 @@ class ScoreCardModel(object):
                     ## 其余的是连续型
                     self.cols_cont.append(col)
 
-    def add_mono_expect(self):
+    def _add_mono_expect(self):
         """
         对有序离散型、连续性特征进行单调性参数整理
 
@@ -246,52 +265,81 @@ class ScoreCardModel(object):
         self.mono_expect = {col:{'shape': 'mono', 'u': False} for col in list_cols}
 
 
-    def _check_target(self):
+    def _check_target(self, df):
         """
         简单检查一下Y标的分布是否正确
 
+
+
+        Parameters:
+        ----------
+        df: dataframe, 待处理的dataframe
+
         """
-        if len(self.df[self.target].unique()) <= 1:
-            print('Bad Target!!!')
+        if len(df[self.target].unique()) <= 1:
+            print('The proportion of target is >= 1')
             raise TypeError
 
-    def _check_if_has_null(self):
+    @staticmethod
+    def _check_if_has_null(df):
         """
         用于检查输入的dataframe是否有空值
         (原理上不允许出现空值)
 
         Parameters:
         ----------
+        df: dataframe, 待处理的dataframe
 
         Returns:
         -------
-        bool, 是否含有空值元素
+
         """
-        if self.df.isnull().sum().sum() > 0:
+        if df.isnull().sum().sum() > 0:
             print('Checking None values: None value exists.Please fix your data.')
             raise TypeError
         else:
             print('Checking None values: No None value exists.')
 
-    def _get_const_cols(self):
+
+    def _get_const_cols(self, df):
         """
         获得常值特征, 即特征列某个属性占比超阈值%
 
         Parameters:
         ----------
+        df: dataframe, 待处理的dataframe
 
         Returns:
         -------
-        self
+        df: dataframe, drop了常值特征后的dataframe
         """
-        for col in self.df.columns:
+        for col in df.columns:
             if col != self.target:
-                if any(self.df[col].value_counts(normalize=True) >= self.const_cols_ratio):
+                if any(df[col].value_counts(normalize=True) >= self.const_cols_ratio):
                     self.const_cols.append(col)
 
-        self.df = self.df.drop(self.const_cols, axis=1)
+        df = df.drop(self.const_cols, axis=1)
 
-    def chi2_cutting(self):
+        # 注意这里需要更新涉及的列
+        self.cols = [col for col in self.cols if col not in self.const_cols]
+
+        return df
+
+    def chi2_cutting(self, df):
+        """
+        卡方分箱
+
+
+
+        Parameters:
+        ----------
+        df: dataframe, 待处理的dataframe
+
+
+        Returns:
+        -------
+
+        """
 
         # 先处理无序分箱少离散特征 & 有序离散特征
         self.disc_cols_cut = self.cols_disc_disord_less + self.cols_disc_ord
@@ -303,7 +351,7 @@ class ScoreCardModel(object):
         disc_mono_expect = {k:v for k,v in self.mono_expect.items() if k in self.disc_cols_cut}
 
         ## 开始分箱
-        self.dict_disc_cols_to_bins, self.dict_disc_iv, self.dict_disc_woe = utils.chi2_cutting_discrete(df_data=self.df,
+        self.dict_disc_cols_to_bins, self.dict_disc_iv, self.dict_disc_woe = utils.chi2_cutting_discrete(df_data=df,
                                                                                                          feat_list=self.disc_cols_cut,
                                                                                                          target=self.target,
                                                                                                          special_feat_val=disc_special_cols_vals,
@@ -323,7 +371,7 @@ class ScoreCardModel(object):
         cont_mono_expect = {k:v for k,v in self.mono_expect.items() if k in self.cont_cols_cut}
 
         ## 开始分箱
-        self.dict_cont_cols_to_bins, self.dict_cont_iv, self.dict_cont_woe = utils.chi2_cutting_continuous(df_data=self.df,
+        self.dict_cont_cols_to_bins, self.dict_cont_iv, self.dict_cont_woe = utils.chi2_cutting_continuous(df_data=df,
                                                                                                            feat_list=self.cont_cols_cut,
                                                                                                            target=self.target,
                                                                                                            discrete_more_feats=self.cols_disc_disord_more,
@@ -358,7 +406,7 @@ class ScoreCardModel(object):
         df_bins: bins后的dataframe
         """
         # 检查在df中的特征, 仅选取进入了分箱过程的列
-        cols = [col for col in df.columns if col in self.df.columns]
+        cols = [col for col in df.columns if col in self.cols]
 
         df_bins = df.loc[:, cols]
 
@@ -397,7 +445,7 @@ class ScoreCardModel(object):
         # 检查在df中的特征, 仅选取进入了分箱过程的列
         df_woe = self.trans_df_to_bins(df=df)
 
-        for col in df_woe.columns:
+        for col in tqdm(df_woe.columns, desc="transforming the woe dataframe"):
             # 遍历处理特征, 注意排除target
             if col == self.target:
                 continue
@@ -408,7 +456,7 @@ class ScoreCardModel(object):
 
         return df_woe
 
-    def add_pinepine(self, pipe_name):
+    def _add_pinepine(self, pipe_name):
         """
         向流水线列表中添加流程名称
 
@@ -428,12 +476,28 @@ class ScoreCardModel(object):
             print('Back pipeline option.')
             raise TypeError
 
-    def model_pineline_proc(self, pipe_config=None):
+    def save_model(self, save_path='Score_card_model.pkl'):
+        """
+        保存模型
+        当前只支持用dill进行pkl的封装
+
+        Parameters:
+        ----------
+        save_path: str, 保存路径
+
+        Returns:
+        -------
+        """
+
+        dill.dump(self, file=open(save_path, 'wb'))
+
+    def model_pineline_proc(self, df, pipe_config=None):
         """
         对设定的流水线过程进行逐步操作
 
         Parameters:
         ----------
+        df: dataframe, 待处理的dataframe
 
         pipe_config:dict, {'sp_vals_cols': {},
                            'const_cols_ratio': 0.9,
@@ -465,26 +529,26 @@ class ScoreCardModel(object):
             elif config == 'max_intervals' and isinstance(pipe_config[config], int):
                 self._add_max_intervals(max_intervals=pipe_config[config])
 
+        # 获取列
+        self.cols = [col for col in df.columns.tolist() if col != self.target]
+
         # 当前设定第一步检查Y标是否唯一的错误
-        self.add_pinepine('Check_Target')
+        self._add_pinepine('Check_Target')
 
         # 当前设定第二步检查是否为非空
-        self.add_pinepine('Check_None')
+        self._add_pinepine('Check_None')
 
         # 当前设定第三步检查常值特征
-        self.add_pinepine('Check_Const_Cols')
+        self._add_pinepine('Check_Const_Cols')
 
         # 当前设定第四步为获取特征的类型
-        self.add_pinepine('Check_Cols_Types')
+        self._add_pinepine('Check_Cols_Types')
 
         # 当前设定第五步为处理特征的单调性要求
-        self.add_pinepine('Add_Mono_Expect')
+        self._add_pinepine('Add_Mono_Expect')
 
         # 第五步开始卡方分箱
-        self.add_pinepine('Chi2_Cutting')
-
-        # 第六步进行woe转换
-        self.add_pinepine('Woe_Transform')
+        self._add_pinepine('Chi2_Cutting')
 
 
         # 开始遍历流程处理
@@ -492,21 +556,19 @@ class ScoreCardModel(object):
             proc_name = proc[1]
 
             if proc_name == 'Check_Target':
-                self._check_target()
+                self._check_target(df=df)
             elif proc_name == 'Check_None':
-                self._check_if_has_null()
+                self._check_if_has_null(df=df)
             elif proc_name == 'Check_Const_Cols':
-                self._get_const_cols()
+                df = self._get_const_cols(df=df)
             elif proc_name == 'Check_Cols_Types':
-                self._get_cols_type()
+                self._get_cols_type(df=df)
             elif proc_name == 'Add_Mono_Expect':
-                self.add_mono_expect()
+                self._add_mono_expect()
             elif proc_name == 'Chi2_Cutting':
-                self.chi2_cutting()
-            elif proc_name == 'Woe_Transform':
-                self.df_woe = self.trans_df_to_woe(df=self.df)
+                self.chi2_cutting(df=df)
 
-    def filter_df_woe_iv(self, df_woe, iv_thres=0.01):
+    def filter_df_woe_iv(self, df_woe, iv_thres=0.02):
         """
         选出基于iv阈值需要踢出的特征名
 
@@ -519,6 +581,7 @@ class ScoreCardModel(object):
         iv_thres: float, 最小的IV阈值
 
         Returns:
+        -------
         cols_filter: set, 小于IV阈值的特征集合
 
         """
@@ -606,10 +669,13 @@ class ScoreCardModel(object):
 
         # list记录vif大于阈值的特征名称
         list_feats_h_vif = []
+
         # copy
         df = df_woe.drop(self.target, axis=1)
+
         # 特征名
         list_featnames = list(df.columns)
+
         # df转化为矩阵
         ## pandas 1.0.0开始剔除as_matrix
         # mat_vif = df.as_matrix()
@@ -618,8 +684,10 @@ class ScoreCardModel(object):
         for i in range(len(list_featnames)):
             # 获取特征名
             featname = list_featnames[i]
+
             # 获取特征对应的vif
             feat_vif = variance_inflation_factor(mat_vif, i)
+
             # 如果vif大于阈值, 则写入这个特征
             if feat_vif >= vif_thres:
                 list_feats_h_vif.append(featname)
@@ -628,8 +696,10 @@ class ScoreCardModel(object):
         while len(list_feats_h_vif) > 0:
             # 先重置list_feats_h_vif
             list_feats_h_vif = []
+
             # dict记录可以剔除的候选特征以及其IV
             dict_feats_candi = {}
+
             # 基于IV对特征进行排序
             dict_feativ_order = {k: v for k, v in sorted(self.dict_iv.items(), key=lambda x: x[1]) if
                                  k in list_featnames}
@@ -637,10 +707,12 @@ class ScoreCardModel(object):
             for feat in dict_feativ_order.keys():
                 # 剔除这个特征
                 df0 = df.drop(feat, axis=1)
+
                 # 重新计算vif
                 # mat_df0 = df0.as_matrix()
                 mat_df0 = df0.values
                 list_vif = [variance_inflation_factor(mat_df0, i) for i in range(df0.shape[1])]
+
                 # 如果list_vif中不存在大于阈值vif的情况, 则表示剔除这个特征有效解决共线性
                 if max(list_vif) < vif_thres:
                     # 找出该特征的iv
@@ -657,8 +729,10 @@ class ScoreCardModel(object):
 
             # 插入返回的set中
             cols_filter.add(feat_candi_miniv)
+
             # 剔除该特征
             df = df.drop(feat_candi_miniv, axis=1)
+
             # mat_vif = df.as_matrix()
             mat_vif = df.values
 
@@ -667,22 +741,24 @@ class ScoreCardModel(object):
             for i in range(len(list_featnames)):
                 # 获取特征名
                 featname = list_featnames[i]
+
                 # 获取特征对应的vif
                 feat_vif = variance_inflation_factor(mat_vif, i)
+
                 # 如果vif大于阈值, 则写入这个特征
                 if feat_vif >= vif_thres:
                     list_feats_h_vif.append(featname)
 
         return cols_filter
 
-    def filter_df_woe_pvalue(self, df_woe, pval_thres=0.05):
+    def filter_df_woe_pvalue(self, df, pval_thres=0.05):
         """
         对回归模型系数进行显著性检验
         类似vif的处理方法逐步回归,先按p_value最高的特征进行剔除,再进行回归,直到所有的系数显著
 
         Parameters:
         ----------
-        df_woe: dataframe, 输入的训练集(含target)
+        df: dataframe, 输入的训练集(含target)
         pval_thres: float, p_value阈值
 
         Returns:
@@ -691,9 +767,6 @@ class ScoreCardModel(object):
 
         """
         cols_filter = set()
-
-        # copy
-        df = df_woe.copy()
 
         # 初始建模, 注意加入常数项
         df['intercept'] = [1] * df.shape[0]
@@ -704,6 +777,7 @@ class ScoreCardModel(object):
 
         # 初始化对应的pvalue字典
         dict_feats_pvalue = results.pvalues.to_dict()
+
         # 注意要删除截距项
         del dict_feats_pvalue['intercept']
 
@@ -711,33 +785,41 @@ class ScoreCardModel(object):
         while max(dict_feats_pvalue.values()) > pval_thres:
             # 取得最不显著的特征
             feat_max_pval = max(dict_feats_pvalue, key=dict_feats_pvalue.get)
+
             # 插入待删除列表
             cols_filter.add(feat_max_pval)
+
             # 剔除该特征
             df0 = df.drop(feat_max_pval, axis=1)
+
             # 重新建模
             df0['intercept'] = [1] * df0.shape[0]
             x = df0.drop(self.target, axis=1)
             y = df0[self.target]
             model = sm.Logit(y, x)
             results = model.fit()
+
             # 重置赋值dict_feats_pvalue
             dict_feats_pvalue = results.pvalues.to_dict()
+
             # 删除截距项
             del dict_feats_pvalue['intercept']
+
             # df剔除该特征
             df = df.drop(feat_max_pval, axis=1)
 
         return cols_filter
 
-    def set_md_features(self, md_feats):
+    def set_md_features(self, md_feats, df_woe):
         """
 
-        设置入模特征
+        设置入模特征, 同时会启动训练
 
         Parameters:
         ----------
         md_feats: list, 入模特征列表
+
+        df_woe: dataframe, 训练使用的df_woe
 
         Returns:
         -------
@@ -752,13 +834,24 @@ class ScoreCardModel(object):
                 if feat == self.target:
                     raise Exception('设置的入模特征不允许为目标变量(Y标).')
                 else:
-                    if feat not in self.df.columns:
+                    if feat not in self.cols:
                         raise Exception('{0}不存在于候选特征中.'.format(feat))
 
             self.md_feats = md_feats
             print('设置入模特征{0}个.'.format(len(md_feats)))
         else:
             raise Exception('设置的入模特征个数必须大于0.')
+
+        # 这里开始训练
+        self.estimator.fit(X=df_woe.loc[:, self.md_feats], y=self.target)
+
+        self.estimator_is_fit = True
+
+        # 这里要抓系数
+        self._coefs['const'] = self.estimator.intercept_[0]
+
+        for _idx, _feat in enumerate(self.md_feats):
+            self._coefs[_feat] = list(self.estimator.coef_[0])[_idx]
 
 
     def _check_if_has_md_feats(self):
@@ -778,6 +871,52 @@ class ScoreCardModel(object):
         else:
             raise Exception('未设置入模特征.')
 
+    def gen_feat_to_score(self, path_file='Score_bins.xlsx', base_score=500, pdo=20):
+        """
+
+        用来生成入模变量的单箱分数表, 最终用于业务使用
+
+        Parameters:
+        ----------
+        base_score: int, 基础分
+
+        pdo: int, odds提高rate(这里是2)倍时变化的分数
+        """
+        # 检查模型是否已经训练过了
+        if not self.estimator_is_fit:
+            raise Exception('模型还未经过输入,请先使用set_md_features')
+
+        # 计算常数项分数
+        const_score = int(base_score - pdo * self._coefs['const'] / np.log(2))
+
+        # 整合各组的woe, iv等
+        score_res = []
+
+        for _feat, _bin_group in self.dict_cols_to_bins.items():
+            woe_group = self.dict_woe[_feat]
+            iv_feat = self.dict_iv[_feat]
+            coef_feat = self._coefs[_feat]
+
+            for _value, _group_no in _bin_group.items():
+                _woe = woe_group[_group_no]
+
+                score_data = {'featname': _feat,
+                              'value': _value,
+                              'group_no': _group_no,
+                              'group_woe': _woe,
+                              'group_score': round(-pdo / np.log(2) * coef_feat * _woe),
+                              'const_score': const_score,
+                              'iv': iv_feat}
+
+                score_res.append(score_data)
+
+        df_score_res = pd.DataFrame(score_res)
+
+        df_score_res.to_excel(path_file)
+
+        return df_score_res
+      
+    
     @ staticmethod
     def proba_to_score(proba, base_score=500, pdo=20):
         """
@@ -810,15 +949,13 @@ class ScoreCardModel(object):
 
         return score
 
-    def get_df_scores(self, df_woe, estimator, base_score=500, pdo=20):
+    def get_df_scores(self, df_woe, base_score=500, pdo=20):
         """
         基于入模特征计算dataframe的分数
 
         Parameters:
         ----------
         df_woe: dataframe,训练集, 注意列必须包含所有的入模特征, 且默认经过了woe编码了
-
-        estimator: model,模型对象,必须包含predict_proba
 
         base_score: int,基础分
 
@@ -835,6 +972,10 @@ class ScoreCardModel(object):
         # 先检查是否有设置入模特征
         self._check_if_has_md_feats()
 
+        # 检查模型是否已经训练过了
+        if not self.estimator_is_fit:
+            raise Exception('模型还未经过输入,请先使用set_md_features')
+
         # 再检查df是否含有所有的入模特征
         if not all([col in df_woe.columns for col in self.md_feats]):
             raise Exception('输入的dataframe没有包含所有入模特征.')
@@ -843,7 +984,7 @@ class ScoreCardModel(object):
         df = df_woe.loc[:, self.md_feats]
 
         # 计算proba
-        probas = [p[1] for p in estimator.predict_proba(df)]
+        probas = [p[1] for p in self.estimator.predict_proba(df)]
 
         # 计算分数
         scores = [self.proba_to_score(proba=p, base_score=base_score, pdo=pdo) for p in probas]
