@@ -26,6 +26,8 @@ pip install score-card-model
 直接看
 [DEMO](hhttps://github.com/skykiseki/score_card_model/blob/main/demo/demo.ipynb)
 
+[[toolkit](https://github.com/thuiar/TEXTOIR)] [[demo](https://github.com/thuiar/TEXTOIR-DEMO)]
+
 
 1.初始化:
 ------
