@@ -697,7 +697,7 @@ class ScoreCardModel(object):
                 list_feats_h_vif.append(featname)
 
         # 如果list_feats_h_vif有值, 即存在vif>10的情况, 则进入循环
-        while len(list_feats_h_vif) > 0:
+        while len(list_feats_h_vif) > 0 and df.shape[1] > 2:
             # 先重置list_feats_h_vif
             list_feats_h_vif = []
 
@@ -762,7 +762,7 @@ class ScoreCardModel(object):
 
         Parameters:
         ----------
-        df: dataframe, 输入的训练集(含target)
+        df_woe: dataframe, 输入的训练集(含target)
         pval_thres: float, p_value阈值
 
         Returns:
@@ -770,14 +770,20 @@ class ScoreCardModel(object):
         cols_filter: set, 返回需要剔除的特征集合
 
         """
+        #copy
+        df = df_woe.copy()
+
+        # 待删除特征set
         cols_filter = set()
 
         # 初始建模, 注意加入常数项
-        df_woe['intercept'] = [1] * df_woe.shape[0]
-        x = df_woe.drop(self.target, axis=1)
-        y = df_woe[self.target]
+        x = df.drop(self.target, axis=1)
+        x['intercept'] = [1] * x.shape[0]
+
+        y = df[self.target]
+
         model = sm.Logit(y, x)
-        results = model.fit()
+        results = model.fit(disp=0)
 
         # 初始化对应的pvalue字典
         dict_feats_pvalue = results.pvalues.to_dict()
@@ -786,7 +792,7 @@ class ScoreCardModel(object):
         del dict_feats_pvalue['intercept']
 
         # 如果存在不显著的系数
-        while max(dict_feats_pvalue.values()) > pval_thres:
+        while max(dict_feats_pvalue.values()) > pval_thres and len(dict_feats_pvalue) > 1:
             # 取得最不显著的特征
             feat_max_pval = max(dict_feats_pvalue, key=dict_feats_pvalue.get)
 
@@ -797,11 +803,12 @@ class ScoreCardModel(object):
             df0 = df.drop(feat_max_pval, axis=1)
 
             # 重新建模
-            df0['intercept'] = [1] * df0.shape[0]
             x = df0.drop(self.target, axis=1)
+            x['intercept'] = [1] * x.shape[0]
+
             y = df0[self.target]
             model = sm.Logit(y, x)
-            results = model.fit()
+            results = model.fit(disp=0)
 
             # 重置赋值dict_feats_pvalue
             dict_feats_pvalue = results.pvalues.to_dict()
@@ -809,7 +816,7 @@ class ScoreCardModel(object):
             # 删除截距项
             del dict_feats_pvalue['intercept']
 
-            # df剔除该特征
+            # 彻底删除这个特征
             df = df.drop(feat_max_pval, axis=1)
 
         return cols_filter
@@ -847,7 +854,7 @@ class ScoreCardModel(object):
             raise Exception('设置的入模特征个数必须大于0.')
 
         # 这里开始训练
-        self.estimator.fit(X=df_woe.loc[:, self.md_feats], y=self.target)
+        self.estimator.fit(X=df_woe.loc[:, self.md_feats], y=df_woe[self.target])
 
         self.estimator_is_fit = True
 
@@ -916,7 +923,7 @@ class ScoreCardModel(object):
 
         df_score_res = pd.DataFrame(score_res)
 
-        df_score_res.to_excel(path_file)
+        df_score_res.to_excel(path_file, index=False)
 
         return df_score_res
       
@@ -967,6 +974,8 @@ class ScoreCardModel(object):
 
         Returns:
         -------
+        labels: list, 拟合的标签列表
+
         probas: list, 拟合的概率列表
 
         scores: list, 拟合的分数列表
@@ -990,7 +999,7 @@ class ScoreCardModel(object):
         # 计算proba
         probas = [p[1] for p in self.estimator.predict_proba(df)]
 
-        # 计算分数
+        # 计算score
         scores = [self.proba_to_score(proba=p, base_score=base_score, pdo=pdo) for p in probas]
 
         return probas, scores

@@ -106,7 +106,7 @@ dict_woe = scm_obj.dict_woe
 ```python
 # 以下筛选过程顺序可以随意安排, 也非必须调用的内容, 筛选出来后可自由drop
 ## 基于iv进行特征筛选
-cols_iv_lower = scm_obj.filter_df_woe_iv(df_woe=df_woe_train, iv_thres=0.01)
+cols_iv_lower = scm_obj.filter_df_woe_iv(df_woe=df_woe_train, iv_thres=0.02)
 print('IV drop:{0}'.format(cols_iv_lower))
 
 ## 基于相关系数进行特征筛选
@@ -114,10 +114,14 @@ cols_corr_higher = scm_obj.filter_df_woe_corr(df_woe=df_woe_train, corr_thres=0.
 print('Corr drop:{0}'.format(cols_corr_higher))
 
 ## 基于膨胀因子进行特征筛选
-cols_vif_higher = scm_obj.filter_df_woe_vif(df_woe=df_woe_train, vif_thres=100)
+cols_vif_higher = scm_obj.filter_df_woe_vif(df_woe=df_woe_train, vif_thres=10)
 print('VIF drop:{0}'.format(cols_vif_higher))
 
-## 确定入模特征
+## 基于显著性进行特征筛选
+cols_pval_higher = scm_obj.filter_df_woe_pvalue(df_woe=df_woe_train, pval_thres=0.05)
+print('P value drop:{0}'.format(cols_pval_higher))
+
+## 确定入模特征且同时训练基线模型
 md_feats = df_woe.columns.drop(scm_obj.target).tolist()
 
 scm_obj.set_md_features(md_feats)
@@ -127,12 +131,15 @@ scm_obj.set_md_features(md_feats)
 6.dataframe的woe编码 & 分数转换:
 -------------------
 ```python
+# 成入模变量的单箱分数表, 最终用于业务使用, 当前路径下也会生成个Score_bins.xlsx文件
+scm_obj.gen_feat_to_score()
+
 # 这里是对任意的dataframe进行编码, 比如对测试集进行编码
-df_woe = scm_obj.trans_df_to_woe(df=df_data.loc[:, some_features])
+df_woe_train = scm_obj.trans_df_to_woe(df=df_train)
 
 # 获取分数列表,注意这个地方必须要包含所有的入模特征
 # estimator必须包含predict_proba方法
-y_proba, scores = scm_obj.get_df_scores(df_woe=df_woe_test, estimator=estimator_already_fitted)
+y_proba, scores = scm_obj.get_df_scores(df_woe=df_woe_train)
 
 ```
 
@@ -201,7 +208,7 @@ Lift:
 ```python
 from score_card_model.utils import model_lift
 
-df = model_lift(y_true=y_true_train, y_score=y_score_train, is_plot=True)
+df = model_lift(y_true=y_true_train, y_score=score_train, is_plot=True)
 ```
 ![Lift曲线](https://github.com/skykiseki/score_card_model/blob/main/pics/model_lift.png)
 
@@ -226,7 +233,7 @@ plot_score_distribution(y=y_true_train, score=score_train, dict_plot_params = {'
 ```python
 
 #factor为控制字体、画布大小的倍数因子, 因为入模特征不可知, 所以留了这个参数提供自己调节
-scm_obj.plot_feats_badrate(df=df_data.loc[:, ['installment', 'loan_status'] ], factor=1.5)
+scm_obj.plot_feats_badrate(df=df_data.loc[:, ['installment', _target] ], factor=1.5)
 
 ```
 ![特征的Badrate分布](https://github.com/skykiseki/score_card_model/blob/main/pics/plot_feats_badrate.png)
