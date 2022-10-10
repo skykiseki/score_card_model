@@ -1047,8 +1047,10 @@ def chi2_cutting_continuous(df_data, feat_list, target,
             intervals -= len(special_feat_val[feat])
             # 复制一份特殊值的df
             df_special = df.loc[df[feat].isin(special_feat_val[feat])]
+
             # 同时也创建feat + '_bins'列
             df_special[feat + '_bins'] = df_special[feat + '_transf']
+
             # 更新df(剔除特殊值)
             df = df.loc[~df[feat].isin(special_feat_val[feat])]
 

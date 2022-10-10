@@ -5,7 +5,7 @@ score_card_model
     基于最早的FICO风险评分卡逻辑进行优化
 
     当前包含主干部分, 即特征分箱、IV值计算、Woe转化、模型评估指标等。
-    不包含建模的部分, 这个问题留给用户。
+    目前建模仅支持LR
 
     
     特征的分箱使用的方法是卡方分箱, 整个流程为:
@@ -34,10 +34,10 @@ import pandas as pd
 from score_card_model.ScoreCardModel import ScoreCardModel
 
 # 读取数据
-df_data = pd.read_excel("./test.xlsx")
+df_data = pd.read_excel("train_data.xlsx")
 
 # 创建和初始化类, 前提数据已经预处理完毕, 没有缺失值
-scm_obj = ScoreCardModel(df=df_data, target='loan_status')
+scm_obj = ScoreCardModel(target='target')
 
 ```
 
@@ -98,30 +98,24 @@ dict_iv = scm_obj.dict_iv
 # 获取所有特征的woe值
 dict_woe = scm_obj.dict_woe
 
-# 获取woe转化后的dataframe
-df_woe = scm_obj.df_woe
 
 ```
 
 5.特征筛选:
 --------
 ```python
-# 以下筛选过程顺序可以随意安排, 也非必须调用的内容
+# 以下筛选过程顺序可以随意安排, 也非必须调用的内容, 筛选出来后可自由drop
 ## 基于iv进行特征筛选
-cols_iv_lower = scm_obj.filter_df_woe_iv(df_woe=df_woe, iv_thres=0.02)
-df_woe = df_woe.drop(cols_iv_lower, axis=1)
+cols_iv_lower = scm_obj.filter_df_woe_iv(df_woe=df_woe_train, iv_thres=0.01)
+print('IV drop:{0}'.format(cols_iv_lower))
 
 ## 基于相关系数进行特征筛选
-cols_corr_higher = scm_obj.filter_df_woe_corr(df_woe=df_woe, corr_thres=0.7)
-df_woe = df_woe.drop(cols_corr_higher, axis=1)
+cols_corr_higher = scm_obj.filter_df_woe_corr(df_woe=df_woe_train, corr_thres=0.7)
+print('Corr drop:{0}'.format(cols_corr_higher))
 
 ## 基于膨胀因子进行特征筛选
-cols_vif_higher = scm_obj.filter_df_woe_vif(df_woe=df_woe, vif_thres=10)
-df_woe = df_woe.drop(cols_vif_higher, axis=1)
-
-## 基于显著性进行特征筛选
-cols_pval_higher = scm_obj.filter_df_woe_pvalue(df_woe=df_woe, pval_thres=0.05)
-df_woe = df_woe.drop(cols_pval_higher, axis=1)
+cols_vif_higher = scm_obj.filter_df_woe_vif(df_woe=df_woe_train, vif_thres=100)
+print('VIF drop:{0}'.format(cols_vif_higher))
 
 ## 确定入模特征
 md_feats = df_woe.columns.drop(scm_obj.target).tolist()

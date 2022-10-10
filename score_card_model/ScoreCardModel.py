@@ -408,6 +408,9 @@ class ScoreCardModel(object):
         # 检查在df中的特征, 仅选取进入了分箱过程的列
         cols = [col for col in df.columns if col in self.cols]
 
+        # 注意把target加回去
+        cols.append(self.target)
+
         df_bins = df.loc[:, cols]
 
         for col in df_bins.columns:
@@ -440,7 +443,8 @@ class ScoreCardModel(object):
 
         Returns:
         -------
-        df_woe: woe编码后的dataframe
+        df_woe: woe编码后的dataframe, 也会保留target
+
         """
         # 检查在df中的特征, 仅选取进入了分箱过程的列
         df_woe = self.trans_df_to_bins(df=df)
@@ -751,7 +755,7 @@ class ScoreCardModel(object):
 
         return cols_filter
 
-    def filter_df_woe_pvalue(self, df, pval_thres=0.05):
+    def filter_df_woe_pvalue(self, df_woe, pval_thres=0.05):
         """
         对回归模型系数进行显著性检验
         类似vif的处理方法逐步回归,先按p_value最高的特征进行剔除,再进行回归,直到所有的系数显著
@@ -769,9 +773,9 @@ class ScoreCardModel(object):
         cols_filter = set()
 
         # 初始建模, 注意加入常数项
-        df['intercept'] = [1] * df.shape[0]
-        x = df.drop(self.target, axis=1)
-        y = df[self.target]
+        df_woe['intercept'] = [1] * df_woe.shape[0]
+        x = df_woe.drop(self.target, axis=1)
+        y = df_woe[self.target]
         model = sm.Logit(y, x)
         results = model.fit()
 
