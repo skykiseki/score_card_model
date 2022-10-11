@@ -413,7 +413,7 @@ class ScoreCardModel(object):
 
         df_bins = df.loc[:, cols]
 
-        for col in df_bins.columns:
+        for col in tqdm(df_bins.columns, desc="Cutting bins"):
             # 遍历处理特征, 注意排除target
             if col == self.target:
                 continue
@@ -572,7 +572,7 @@ class ScoreCardModel(object):
             elif proc_name == 'Chi2_Cutting':
                 self.chi2_cutting(df=df)
 
-    def filter_df_woe_iv(self, df_woe, iv_thres=0.02):
+    def filter_df_woe_iv(self, iv_thres=0.02):
         """
         选出基于iv阈值需要踢出的特征名
 
@@ -581,7 +581,6 @@ class ScoreCardModel(object):
 
         Parameters:
         ----------
-        df_woe: dataframe, 输入的训练集(含target)
         iv_thres: float, 最小的IV阈值
 
         Returns:
@@ -591,10 +590,7 @@ class ScoreCardModel(object):
         """
         cols_filter = set()
 
-        # 剔除target
-        df = df_woe.drop(self.target, axis=1)
-
-        for col in df.columns:
+        for col in self.cols:
             # 先获取特征的iv值
             iv_col = self.dict_iv[col]
             # 是否小于阈值
