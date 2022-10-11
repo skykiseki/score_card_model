@@ -618,12 +618,9 @@ class ScoreCardModel(object):
         cols_filter = set()
         dict_feat_corr = {}
 
-        # 剔除target
-        df = df_woe.drop(self.target, axis=1)
-
         # 计算相关系数, 记得剔除feat本身组合
         # 注意这里含(A, B) 和(B, A）的重复组合
-        corr_feat = df.corr()
+        corr_feat = df_woe.loc[:, self.cols].corr()
 
         for col in corr_feat.columns:
             for idx in corr_feat.index:
