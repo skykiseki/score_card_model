@@ -110,7 +110,7 @@ dict_woe = scm_obj.dict_woe
 ```python
 # 以下筛选过程顺序可以随意安排, 也非必须调用的内容, 筛选出来后可自由drop
 ## 基于iv进行特征筛选
-cols_iv_lower = scm_obj.filter_df_woe_iv(df_woe=df_woe_train, iv_thres=0.02)
+cols_iv_lower = scm_obj.filter_df_woe_iv(iv_thres=0.02)
 print('IV drop:{0}'.format(cols_iv_lower))
 
 ## 基于相关系数进行特征筛选
