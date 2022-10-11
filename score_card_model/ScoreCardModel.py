@@ -413,7 +413,7 @@ class ScoreCardModel(object):
 
         df_bins = df.loc[:, cols]
 
-        for col in tqdm(df_bins.columns, desc="Cutting bins"):
+        for col in tqdm(df_bins.columns, desc="cutting bins"):
             # 遍历处理特征, 注意排除target
             if col == self.target:
                 continue
