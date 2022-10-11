@@ -622,8 +622,8 @@ class ScoreCardModel(object):
         dict_feat_corr = {}
 
         # 先进行抽样
-        df_pos = df_woe.loc[df_woe[self.target == 1]].sample(random_state=0, frac=frac)
-        df_neg = df_woe.loc[df_woe[self.target == 0]].sample(random_state=0, frac=frac)
+        df_pos = df_woe.loc[df_woe[self.target] == 1].sample(random_state=0, frac=frac)
+        df_neg = df_woe.loc[df_woe[self.target] == 0].sample(random_state=0, frac=frac)
 
         df = pd.concat([df_pos, df_neg]).drop(self.target, axis=1)
 
