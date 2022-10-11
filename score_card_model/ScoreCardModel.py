@@ -884,7 +884,7 @@ class ScoreCardModel(object):
         else:
             raise Exception('未设置入模特征.')
 
-    def gen_feat_to_score(self, path_file='Score_bins.xlsx', base_score=500, pdo=20):
+    def gen_feat_to_score(self, md_feats, path_file='Score_bins.xlsx', base_score=500, pdo=20):
         """
 
         用来生成入模变量的单箱分数表, 最终用于业务使用
@@ -894,6 +894,8 @@ class ScoreCardModel(object):
         base_score: int, 基础分
 
         pdo: int, odds提高rate(这里是2)倍时变化的分数
+
+        md_feats: list, 入模特征列表
         """
         # 检查模型是否已经训练过了
         if not self.estimator_is_fit:
@@ -906,6 +908,9 @@ class ScoreCardModel(object):
         score_res = []
 
         for _feat, _bin_group in self.dict_cols_to_bins.items():
+            if _feat not in md_feats:
+                continue
+
             woe_group = self.dict_woe[_feat]
             iv_feat = self.dict_iv[_feat]
             coef_feat = self._coefs[_feat]
