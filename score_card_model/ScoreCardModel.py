@@ -600,7 +600,7 @@ class ScoreCardModel(object):
         return cols_filter
 
 
-    def filter_df_woe_corr(self, df_woe, corr_thres=0.7):
+    def filter_df_woe_corr(self, df_woe, corr_thres=0.7, frac=0.3):
         """
         基于两个特征的斯皮尔逊相关系数进行剔除
         若两个特征之间的相关系数大于阈值(默认为0.7), 则剔除IV较低的那个
@@ -608,7 +608,10 @@ class ScoreCardModel(object):
         Parameters:
         ----------
         df_woe: dataframe, 输入的训练集(含target)
+
         corr_thres: float, 相关系数阈值
+
+        frac: float, 抽样比率
 
         Returns:
         -------
@@ -618,9 +621,15 @@ class ScoreCardModel(object):
         cols_filter = set()
         dict_feat_corr = {}
 
+        # 先进行抽样
+        df_pos = df_woe.loc[df_woe[self.target == 1]].sample(random_state=0, frac=frac)
+        df_neg = df_woe.loc[df_woe[self.target == 0]].sample(random_state=0, frac=frac)
+
+        df = pd.concat([df_pos, df_neg]).drop(self.target, axis=1)
+
         # 计算相关系数, 记得剔除feat本身组合
         # 注意这里含(A, B) 和(B, A）的重复组合
-        corr_feat = df_woe.drop(self.target, axis=1).corr()
+        corr_feat = df.corr()
 
         for col in corr_feat.columns:
             for idx in corr_feat.index:
