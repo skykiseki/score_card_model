@@ -1202,6 +1202,8 @@ def chi2_cutting_continuous(df_data, feat_list, target,
 
     return dict_contin_feat_to_bins, dict_contin_iv, dict_contin_woe
 
+
+
 def model_roc_auc(y_true, y_proba, is_plot=False, dict_plot_params=None):
     """
     绘制roc曲线

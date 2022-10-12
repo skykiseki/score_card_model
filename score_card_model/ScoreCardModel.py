@@ -1011,6 +1011,40 @@ class ScoreCardModel(object):
 
         return probas, scores
 
+    def plot_feats_iv(self, iv_thres=0.02):
+        """
+        基于IV进行绘图, 仅绘制IV达到阈值的特征
+
+        Parameters:
+        ----------
+        iv_thres: float, iv阈值
+
+        """
+        # 找出iv 大于（含）阈值的特征
+        _feats_over_thres = {_feat:_feat_iv for _feat, _feat_iv in self.dict_iv.items() if _feat_iv >= iv_thres}
+
+        # 绘图
+        fig, ax = plt.subplots(figsize=(10, 10))
+        fontdict = {'fontsize': 15}
+
+        dict_feativ_order = {k: v for k, v in sorted(_feats_over_thres.items(), key=lambda x: x[1])}
+        list_featnames = list(dict_feativ_order.keys())
+        list_iv = list(dict_feativ_order.values())
+
+        ax.barh(list_featnames, list_iv)
+        ax.set_xlabel('IV', fontdict=fontdict)
+        ax.set_ylabel('featname', fontdict=fontdict)
+        ax.set_title("Feats' IV", fontsize=15)
+        ax.tick_params(labelsize='large')
+        ax.vlines(x=iv_thres, ymin=-1, ymax=len(list_featnames),
+                  linestyles='--', colors='r',
+                  label='IV=%.2f' % iv_thres)
+        ax.legend()
+
+        # 铺满整个画布
+        fig.tight_layout()
+
+
     def plot_feats_badrate(self, df, use_cols=None, dict_plot_params=None, factor=None):
         """
         对数据集的各个col绘制badrate分布图
