@@ -4,10 +4,12 @@ import pandas as pd
 import warnings
 import dill
 import matplotlib.pyplot as plt
+from itertools import combinations
 from sklearn.linear_model import LogisticRegression
 from . import utils
 from tqdm import tqdm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.tools.tools import add_constant
 warnings.filterwarnings('ignore')
 
 
@@ -652,112 +654,131 @@ class ScoreCardModel(object):
 
 
 
-    def filter_df_woe_vif(self, df_woe, vif_thres=10):
+    def filter_df_woe_vif(self, df_woe, vif_thres=10, frac=0.1):
         """
         基于statsmodels.stats.outliers_influence.variance_inflation_factor进行vif分析
-        对于共线性问题,可以使用逐一剔除的方法,即先遍历全部特征,尝试去剔除一个特征, 再去统计剔除后的vif是否小于阈值
-        如果小于阈值, 则说明剔除该特征有效
-        如果存在有多个特征可以进行剔除, 则剔除IV较小的那个特征
-        如果遍历了之后,无法找到一个适合的特征进行剔除,则将最小IV的特征进行剔除, 保留高IV特征
+        对于共线性问题, 这里使用排列组合的方法, 对所有的特征集合进行遍历, 取出符合不存在共线性的集合
+
+        而当特征个数相等时, 则使用iv平均最大进行取集合
 
         Parameters:
         ----------
         df_woe: dataframe, 输入的训练集(含target)
+
         vif_thres: float, vif系数阈值
+
+        frac: float, 小于1的比例, 用于抽样计算加速
 
         Returns:
         -------
         cols_filter: set, 返回需要剔除的特征集合
 
         """
-        cols_filter = set()
+
+        # 原始特征名
+        _feats = df_woe.columns.drop(self.target).tolist()
+
+        # 先进行抽样
+        df_pos = df_woe.loc[df_woe[self.target] == 1].sample(random_state=0, frac=frac)
+        df_neg = df_woe.loc[df_woe[self.target] == 0].sample(random_state=0, frac=frac)
+
+        df = pd.concat([df_pos, df_neg]).drop(self.target, axis=1)
+
+        # 符合vif的iv值计算结果
+        dict_vif_iv = {}
+
+        # 符合vif的特征列表计算结果
+        feats_vif_lower = []
+
+        # 开始排列组合
+        for _n in range(len(_feats), 0, -1):
+            for _feats_com in tqdm(combinations(_feats, _n), desc="combinations, n={0}".format(_n)):
+                df_feats_com = add_constant(df.loc[:, _feats_com])
+
+                vif_feats_com = pd.Series([variance_inflation_factor(df_feats_com.values, i) for i in range(df_feats_com.shape[1])],
+                                          index=df_feats_com.columns)
+
+                # 如果该排列组合符合vif条件, 则计算平均iv后纳入
+                if vif_feats_com[list(_feats_com)].max() < vif_thres:
+                    iv_feats_com = np.average([self.dict_iv[feat] for feat in _feats_com])
+
+                    dict_vif_iv[len(dict_vif_iv)] = {'feats': _feats_com,
+                                                     'iv': np.round(iv_feats_com, 4)}
 
 
-        # list记录vif大于阈值的特征名称
-        list_feats_h_vif = []
 
-        # copy
-        df = df_woe.drop(self.target, axis=1)
 
-        # 特征名
-        list_featnames = list(df.columns)
 
-        # df转化为矩阵
-        ## pandas 1.0.0开始剔除as_matrix
-        # mat_vif = df.as_matrix()
-        mat_vif = df.values
-        # 初始化计算dict_feats_iv_vif & list_feats_h_vif
-        for i in range(len(list_featnames)):
-            # 获取特征名
-            featname = list_featnames[i]
 
-            # 获取特征对应的vif
-            feat_vif = variance_inflation_factor(mat_vif, i)
 
-            # 如果vif大于阈值, 则写入这个特征
-            if feat_vif >= vif_thres:
-                list_feats_h_vif.append(featname)
+            if len(dict_vif_iv.keys()) > 0:
+                break
 
-        # 如果list_feats_h_vif有值, 即存在vif>10的情况, 则进入循环
-        while len(list_feats_h_vif) > 0 and df.shape[1] > 2:
-            # 先重置list_feats_h_vif
-            list_feats_h_vif = []
+        if len(dict_vif_iv.keys()) > 0:
+            feats_vif_lower = sorted(dict_vif_iv.items(), key=lambda x: x[1]['iv'], reverse=True)[0][1]['feats']
 
-            # dict记录可以剔除的候选特征以及其IV
-            dict_feats_candi = {}
+        cols_filter = [col for col in _feats if col not in feats_vif_lower]
 
-            # 基于IV对特征进行排序
-            dict_feativ_order = {k: v for k, v in sorted(self.dict_iv.items(), key=lambda x: x[1]) if
-                                 k in list_featnames}
-            # 开始遍历每个特征
-            for feat in dict_feativ_order.keys():
-                # 剔除这个特征
-                df0 = df.drop(feat, axis=1)
-
-                # 重新计算vif
-                # mat_df0 = df0.as_matrix()
-                mat_df0 = df0.values
-                list_vif = [variance_inflation_factor(mat_df0, i) for i in range(df0.shape[1])]
-
-                # 如果list_vif中不存在大于阈值vif的情况, 则表示剔除这个特征有效解决共线性
-                if max(list_vif) < vif_thres:
-                    # 找出该特征的iv
-                    iv_feat_candi = dict_feativ_order[feat]
-                    # 插入候选字典
-                    dict_feats_candi[feat] = iv_feat_candi
-
-            # 取得候选中最小iv的特征
-            # 如果遍历了全部特征仍没有办法排除共线性, 则剔除最小iv的特征
-            if len(dict_feats_candi.keys()) > 0:
-                feat_candi_miniv = min(dict_feats_candi, key=dict_feats_candi.get)
-            else:
-                feat_candi_miniv = min(dict_feativ_order, key=dict_feativ_order.get)
-
-            # 插入返回的set中
-            cols_filter.add(feat_candi_miniv)
-
-            # 剔除该特征
-            df = df.drop(feat_candi_miniv, axis=1)
-
-            # mat_vif = df.as_matrix()
-            mat_vif = df.values
-
-            # 重新计算
-            list_featnames = list(df.columns)
-            for i in range(len(list_featnames)):
-                # 获取特征名
-                featname = list_featnames[i]
-
-                # 获取特征对应的vif
-                feat_vif = variance_inflation_factor(mat_vif, i)
-
-                # 如果vif大于阈值, 则写入这个特征
-                if feat_vif >= vif_thres:
-                    list_feats_h_vif.append(featname)
+        # # 如果list_feats_h_vif有值, 即存在vif>10的情况, 则进入循环
+        # while len(list_feats_h_vif) > 0 and df.shape[1] > 2:
+        #     # 先重置list_feats_h_vif
+        #     list_feats_h_vif = []
+        #
+        #     # dict记录可以剔除的候选特征以及其IV
+        #     dict_feats_candi = {}
+        #
+        #     # 基于IV对特征进行排序
+        #     dict_feativ_order = {k: v for k, v in sorted(self.dict_iv.items(), key=lambda x: x[1]) if
+        #                          k in _feats}
+        #     # 开始遍历每个特征
+        #     for feat in dict_feativ_order.keys():
+        #         # 剔除这个特征
+        #         df0 = df.drop(feat, axis=1)
+        #
+        #         # 重新计算vif
+        #         # mat_df0 = df0.as_matrix()
+        #         mat_df0 = df0.values
+        #         list_vif = [variance_inflation_factor(mat_df0, i) for i in range(df0.shape[1])]
+        #
+        #         # 如果list_vif中不存在大于阈值vif的情况, 则表示剔除这个特征有效解决共线性
+        #         if max(list_vif) < vif_thres:
+        #             # 找出该特征的iv
+        #             iv_feat_candi = dict_feativ_order[feat]
+        #             # 插入候选字典
+        #             dict_feats_candi[feat] = iv_feat_candi
+        #
+        #     # 取得候选中最小iv的特征
+        #     # 如果遍历了全部特征仍没有办法排除共线性, 则剔除最小iv的特征
+        #     if len(dict_feats_candi.keys()) > 0:
+        #         feat_candi_miniv = min(dict_feats_candi, key=dict_feats_candi.get)
+        #     else:
+        #         feat_candi_miniv = min(dict_feativ_order, key=dict_feativ_order.get)
+        #
+        #     # 插入返回的set中
+        #     cols_filter.add(feat_candi_miniv)
+        #
+        #     # 剔除该特征
+        #     df = df.drop(feat_candi_miniv, axis=1)
+        #
+        #     # mat_vif = df.as_matrix()
+        #     mat_vif = df.values
+        #
+        #     # 重新计算
+        #     list_featnames = list(df.columns)
+        #     for i in range(len(list_featnames)):
+        #         # 获取特征名
+        #         featname = list_featnames[i]
+        #
+        #         # 获取特征对应的vif
+        #         feat_vif = variance_inflation_factor(mat_vif, i)
+        #
+        #         # 如果vif大于阈值, 则写入这个特征
+        #         if feat_vif >= vif_thres:
+        #             list_feats_h_vif.append(featname)
 
         return cols_filter
 
-    def filter_df_woe_pvalue(self, df_woe, pval_thres=0.05):
+    def filter_df_woe_pvalue(self, df_woe, pval_thres=0.05, frac=0.1):
         """
         对回归模型系数进行显著性检验
         类似vif的处理方法逐步回归,先按p_value最高的特征进行剔除,再进行回归,直到所有的系数显著
@@ -765,61 +786,112 @@ class ScoreCardModel(object):
         Parameters:
         ----------
         df_woe: dataframe, 输入的训练集(含target)
+
         pval_thres: float, p_value阈值
+
+        frac: float, 小于1的比例, 用于抽样计算加速
 
         Returns:
         -------
         cols_filter: set, 返回需要剔除的特征集合
 
         """
-        #copy
-        df = df_woe.copy()
+        # 原始特征名
+        _feats = df_woe.columns.drop(self.target).tolist()
 
-        # 待删除特征set
-        cols_filter = set()
+        # 先进行抽样
+        df_pos = df_woe.loc[df_woe[self.target] == 1].sample(random_state=0, frac=frac)
+        df_neg = df_woe.loc[df_woe[self.target] == 0].sample(random_state=0, frac=frac)
 
-        # 初始建模, 注意加入常数项
-        x = df.drop(self.target, axis=1)
-        x['intercept'] = [1] * x.shape[0]
+        df = pd.concat([df_pos, df_neg])
 
-        y = df[self.target]
+        # 符合p值的iv值计算结果
+        dict_pvalue_iv = {}
 
-        model = sm.Logit(y, x)
-        results = model.fit(disp=0)
+        # 符合p值的特征列表计算结果
+        feats_pvalue_lower = []
 
-        # 初始化对应的pvalue字典
-        dict_feats_pvalue = results.pvalues.to_dict()
+        # 开始排列组合
+        for _n in range(len(_feats), 0, -1):
+            for _feats_com in tqdm(combinations(_feats, _n), desc="combinations, n={0}".format(_n)):
+                # 预建模, 注意加入常数项
+                x = df.loc[:, _feats_com]
+                x['intercept'] = [1] * x.shape[0]
 
-        # 注意要删除截距项
-        del dict_feats_pvalue['intercept']
+                y = df[self.target]
 
-        # 如果存在不显著的系数
-        while max(dict_feats_pvalue.values()) > pval_thres and len(dict_feats_pvalue) > 1:
-            # 取得最不显著的特征
-            feat_max_pval = max(dict_feats_pvalue, key=dict_feats_pvalue.get)
+                model = sm.Logit(y, x)
+                results = model.fit(disp=0)
 
-            # 插入待删除列表
-            cols_filter.add(feat_max_pval)
+                # 判断系数是否为正
+                is_params_pos = results.params[list(_feats_com)].min() > 0
 
-            # 剔除该特征
-            df0 = df.drop(feat_max_pval, axis=1)
+                # 判断是否都显著
+                is_pvalue_pos = results.pvalues[list(_feats_com)].max() < pval_thres
 
-            # 重新建模
-            x = df0.drop(self.target, axis=1)
-            x['intercept'] = [1] * x.shape[0]
+                # 如果该排列组合符合p值和系数条件, 则计算平均iv后纳入
+                if is_params_pos and is_pvalue_pos:
+                    iv_feats_com = np.average([self.dict_iv[feat] for feat in _feats_com])
 
-            y = df0[self.target]
-            model = sm.Logit(y, x)
-            results = model.fit(disp=0)
+                    dict_pvalue_iv[len(dict_pvalue_iv)] = {'feats': _feats_com,
+                                                           'iv': np.round(iv_feats_com, 4)}
 
-            # 重置赋值dict_feats_pvalue
-            dict_feats_pvalue = results.pvalues.to_dict()
+            if len(dict_pvalue_iv.keys()) > 0:
+                break
 
-            # 删除截距项
-            del dict_feats_pvalue['intercept']
+        if len(dict_pvalue_iv.keys()) > 0:
+            feats_pvalue_lower = sorted(dict_pvalue_iv.items(), key=lambda x: x[1]['iv'], reverse=True)[0][1]['feats']
 
-            # 彻底删除这个特征
-            df = df.drop(feat_max_pval, axis=1)
+        cols_filter = [col for col in _feats if col not in feats_pvalue_lower]
+
+        # #copy
+        # df = df_woe.copy()
+        #
+        # # 待删除特征set
+        # cols_filter = set()
+        #
+        # # 初始建模, 注意加入常数项
+        # x = df.drop(self.target, axis=1)
+        # x['intercept'] = [1] * x.shape[0]
+        #
+        # y = df[self.target]
+        #
+        # model = sm.Logit(y, x)
+        # results = model.fit(disp=0)
+        #
+        # # 初始化对应的pvalue字典
+        # dict_feats_pvalue = results.pvalues.to_dict()
+        #
+        # # 注意要删除截距项
+        # del dict_feats_pvalue['intercept']
+        #
+        # # 如果存在不显著的系数
+        # while max(dict_feats_pvalue.values()) > pval_thres and len(dict_feats_pvalue) > 1:
+        #     # 取得最不显著的特征
+        #     feat_max_pval = max(dict_feats_pvalue, key=dict_feats_pvalue.get)
+        #
+        #     # 插入待删除列表
+        #     cols_filter.add(feat_max_pval)
+        #
+        #     # 剔除该特征
+        #     df0 = df.drop(feat_max_pval, axis=1)
+        #
+        #     # 重新建模
+        #     x = df0.drop(self.target, axis=1)
+        #     x['intercept'] = [1] * x.shape[0]
+        #
+        #     y = df0[self.target]
+        #     model = sm.Logit(y, x)
+        #     results = model.fit(disp=0)
+        #
+        #     # 重置赋值dict_feats_pvalue
+        #     dict_feats_pvalue = results.pvalues.to_dict()
+        #
+        #     # 删除截距项
+        #     del dict_feats_pvalue['intercept']
+        #
+        #     # 彻底删除这个特征
+        #     df = df.drop(feat_max_pval, axis=1)
 
         return cols_filter
 
@@ -1011,23 +1083,25 @@ class ScoreCardModel(object):
 
         return probas, scores
 
-    def plot_feats_iv(self, iv_thres=0.02):
+    def plot_feats_iv(self, feats=[], iv_thres=0.02):
         """
-        基于IV进行绘图, 仅绘制IV达到阈值的特征
+        基于IV进行绘图, 仅绘制特定列的iv
 
         Parameters:
         ----------
-        iv_thres: float, iv阈值
+        feats: list, 待绘制的特征了列表
+
+        iv_thres: float, iv基准线
 
         """
         # 找出iv 大于（含）阈值的特征
-        _feats_over_thres = {_feat:_feat_iv for _feat, _feat_iv in self.dict_iv.items() if _feat_iv >= iv_thres}
+        _feats_iv = {_feat:self.dict_iv[_feat] for _feat in feats}
 
         # 绘图
         fig, ax = plt.subplots(figsize=(10, 10))
         fontdict = {'fontsize': 15}
 
-        dict_feativ_order = {k: v for k, v in sorted(_feats_over_thres.items(), key=lambda x: x[1])}
+        dict_feativ_order = {k: v for k, v in sorted(_feats_iv.items(), key=lambda x: x[1])}
         list_featnames = list(dict_feativ_order.keys())
         list_iv = list(dict_feativ_order.values())
 
