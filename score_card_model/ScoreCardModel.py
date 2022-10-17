@@ -692,7 +692,10 @@ class ScoreCardModel(object):
 
         # 开始排列组合
         for _n in range(len(_feats), 0, -1):
-            for _feats_com in tqdm(combinations(_feats, _n), desc="combinations, n={0}".format(_n)):
+
+            n_feats = _n
+
+            for _feats_com in tqdm(combinations(_feats, n_feats), desc="combinations, n={0}".format(n_feats)):
                 df_feats_com = add_constant(df.loc[:, _feats_com])
 
                 vif_feats_com = pd.Series([variance_inflation_factor(df_feats_com.values, i) for i in range(df_feats_com.shape[1])],
@@ -778,7 +781,7 @@ class ScoreCardModel(object):
 
         return cols_filter
 
-    def filter_df_woe_pvalue(self, df_woe, pval_thres=0.05, frac=0.1):
+    def filter_df_woe_pvalue(self, df_woe, pval_thres=0.05, frac=0.1, n_select=None):
         """
         对回归模型系数进行显著性检验
         类似vif的处理方法逐步回归,先按p_value最高的特征进行剔除,再进行回归,直到所有的系数显著
@@ -790,6 +793,8 @@ class ScoreCardModel(object):
         pval_thres: float, p_value阈值
 
         frac: float, 小于1的比例, 用于抽样计算加速
+
+        n_select: int, 指定特定的n开始进行搜索
 
         Returns:
         -------
@@ -811,8 +816,15 @@ class ScoreCardModel(object):
         # 符合p值的特征列表计算结果
         feats_pvalue_lower = []
 
+        # 处理开始搜索的特征个数起点
+        n_feats = len(_feats)
+
+        if n_select is not None:
+            n_feats = n_select
+
+
         # 开始排列组合
-        for _n in range(len(_feats), 0, -1):
+        for _n in range(n_feats, 0, -1):
             for _feats_com in tqdm(combinations(_feats, _n), desc="combinations, n={0}".format(_n)):
                 # 预建模, 注意加入常数项
                 x = df.loc[:, _feats_com]
