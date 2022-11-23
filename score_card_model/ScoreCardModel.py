@@ -10,6 +10,7 @@ from . import utils
 from tqdm import tqdm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.tools.tools import add_constant
+
 warnings.filterwarnings('ignore')
 
 
@@ -74,6 +75,7 @@ class ScoreCardModel(object):
 
 
     """
+
     def __init__(self, target, **estimator_kwargs):
 
         self.cols = None
@@ -98,7 +100,7 @@ class ScoreCardModel(object):
         self.mono_expect = None
 
         self.pipe_options = ['Check_Target', 'Check_None', 'Check_Const_Cols', 'Check_Cols_Types',
-                             'Add_Mono_Expect','Chi2_Cutting']
+                             'Add_Mono_Expect', 'Chi2_Cutting']
         self.pinelines = []
 
         self.const_cols = []
@@ -130,7 +132,6 @@ class ScoreCardModel(object):
 
         self._coefs = {}
 
-
     def _add_min_pnt(self, min_pnt):
         """
         添加分箱的样本最小占比
@@ -144,7 +145,6 @@ class ScoreCardModel(object):
         self
         """
         self.min_pnt = min_pnt
-
 
     def _add_max_intervals(self, max_intervals):
         """
@@ -264,8 +264,7 @@ class ScoreCardModel(object):
         """
         list_cols = self.cols_disc_ord + self.cols_cont
 
-        self.mono_expect = {col:{'shape': 'mono', 'u': False} for col in list_cols}
-
+        self.mono_expect = {col: {'shape': 'mono', 'u': False} for col in list_cols}
 
     def _check_target(self, df):
         """
@@ -301,7 +300,6 @@ class ScoreCardModel(object):
             raise TypeError
         else:
             print('Checking None values: No None value exists.')
-
 
     def _get_const_cols(self, df):
         """
@@ -347,10 +345,10 @@ class ScoreCardModel(object):
         self.disc_cols_cut = self.cols_disc_disord_less + self.cols_disc_ord
 
         ## 特殊值
-        disc_special_cols_vals = {k:v for k,v in self.sp_vals_cols.items() if k in self.disc_cols_cut}
+        disc_special_cols_vals = {k: v for k, v in self.sp_vals_cols.items() if k in self.disc_cols_cut}
 
         ## 单调性要求
-        disc_mono_expect = {k:v for k,v in self.mono_expect.items() if k in self.disc_cols_cut}
+        disc_mono_expect = {k: v for k, v in self.mono_expect.items() if k in self.disc_cols_cut}
 
         ## 开始分箱
         self.dict_disc_cols_to_bins, self.dict_disc_iv, self.dict_disc_woe = utils.chi2_cutting_discrete(df_data=df,
@@ -362,15 +360,14 @@ class ScoreCardModel(object):
                                                                                                          discrete_order=self.idx_cols_disc_ord,
                                                                                                          mono_expect=disc_mono_expect)
 
-
         # 开始处理无序分箱多离散特征 & 连续特征
         self.cont_cols_cut = self.cols_disc_disord_more + self.cols_cont
 
         ## 特殊值
-        cont_special_cols_vals = {k:v for k,v in self.sp_vals_cols.items() if k in self.cont_cols_cut}
+        cont_special_cols_vals = {k: v for k, v in self.sp_vals_cols.items() if k in self.cont_cols_cut}
 
         ## 单调性要求
-        cont_mono_expect = {k:v for k,v in self.mono_expect.items() if k in self.cont_cols_cut}
+        cont_mono_expect = {k: v for k, v in self.mono_expect.items() if k in self.cont_cols_cut}
 
         ## 开始分箱
         self.dict_cont_cols_to_bins, self.dict_cont_iv, self.dict_cont_woe = utils.chi2_cutting_continuous(df_data=df,
@@ -432,8 +429,6 @@ class ScoreCardModel(object):
             df_bins[col] = df_bins[col].map(dict_col_to_bins)
 
         return df_bins
-
-
 
     def trans_df_to_woe(self, df):
         """
@@ -556,7 +551,6 @@ class ScoreCardModel(object):
         # 第五步开始卡方分箱
         self._add_pinepine('Chi2_Cutting')
 
-
         # 开始遍历流程处理
         for proc in self.pinelines:
             proc_name = proc[1]
@@ -600,7 +594,6 @@ class ScoreCardModel(object):
                 cols_filter.add(col)
 
         return cols_filter
-
 
     def filter_df_woe_corr(self, df_woe, corr_thres=0.7, frac=0.3):
         """
@@ -652,8 +645,6 @@ class ScoreCardModel(object):
 
         return cols_filter
 
-
-
     def filter_df_woe_vif(self, df_woe, vif_thres=10, frac=0.1):
         """
         基于statsmodels.stats.outliers_influence.variance_inflation_factor进行vif分析
@@ -698,8 +689,9 @@ class ScoreCardModel(object):
             for _feats_com in tqdm(combinations(_feats, n_feats), desc="combinations, n={0}".format(n_feats)):
                 df_feats_com = add_constant(df.loc[:, _feats_com])
 
-                vif_feats_com = pd.Series([variance_inflation_factor(df_feats_com.values, i) for i in range(df_feats_com.shape[1])],
-                                          index=df_feats_com.columns)
+                vif_feats_com = pd.Series(
+                    [variance_inflation_factor(df_feats_com.values, i) for i in range(df_feats_com.shape[1])],
+                    index=df_feats_com.columns)
 
                 # 如果该排列组合符合vif条件, 则计算平均iv后纳入
                 if vif_feats_com[list(_feats_com)].max() < vif_thres:
@@ -707,12 +699,6 @@ class ScoreCardModel(object):
 
                     dict_vif_iv[len(dict_vif_iv)] = {'feats': _feats_com,
                                                      'iv': np.round(iv_feats_com, 4)}
-
-
-
-
-
-
 
             if len(dict_vif_iv.keys()) > 0:
                 break
@@ -821,7 +807,6 @@ class ScoreCardModel(object):
 
         if n_select is not None:
             n_feats = n_select
-
 
         # 开始排列组合
         for _n in range(n_feats, 0, -1):
@@ -950,7 +935,6 @@ class ScoreCardModel(object):
         for _idx, _feat in enumerate(self.md_feats):
             self._coefs[_feat] = list(self.estimator.coef_[0])[_idx]
 
-
     def _check_if_has_md_feats(self):
         """
 
@@ -1017,9 +1001,8 @@ class ScoreCardModel(object):
         df_score_res.to_excel(path_file, index=False)
 
         return df_score_res
-      
-    
-    @ staticmethod
+
+    @staticmethod
     def proba_to_score(proba, base_score=500, pdo=20):
         """
         概率转化为分数
@@ -1107,7 +1090,7 @@ class ScoreCardModel(object):
 
         """
         # 找出iv 大于（含）阈值的特征
-        _feats_iv = {_feat:self.dict_iv[_feat] for _feat in feats}
+        _feats_iv = {_feat: self.dict_iv[_feat] for _feat in feats}
 
         # 绘图
         fig, ax = plt.subplots(figsize=(10, 10))
@@ -1129,7 +1112,6 @@ class ScoreCardModel(object):
 
         # 铺满整个画布
         fig.tight_layout()
-
 
     def plot_feats_badrate(self, df, use_cols=None, dict_plot_params=None, factor=None):
         """
@@ -1182,7 +1164,6 @@ class ScoreCardModel(object):
             markeredgewidth = dict_plot_params['markeredgewidth']
         else:
             markeredgewidth = 6
-
 
         # 先检查target变量是否存在
         if self.target not in df.columns:
@@ -1264,7 +1245,6 @@ class ScoreCardModel(object):
             for x, y, z in zip(list(regroup_badrate.index),
                                list(regroup_badrate['pnt_feat_vals'] / 2),
                                list(regroup_badrate['pnt_feat_vals'])):
-
                 ax[i].text(x, y, '{0:.2f}%'.format(z * 100),
                            ha='center',
                            va='center',
@@ -1284,7 +1264,6 @@ class ScoreCardModel(object):
             for x, y, z in zip(list(regroup_badrate.index),
                                list(regroup_badrate['bad_rate']),
                                list(regroup_badrate['bad_rate'])):
-
                 ax_twin.text(x, y + 0.02, '{0:.2f}%'.format(z * 100),
                              ha='center',
                              va='center',
@@ -1299,6 +1278,3 @@ class ScoreCardModel(object):
 
         # 铺满整个画布
         fig.tight_layout()
-
-
-

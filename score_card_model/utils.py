@@ -33,7 +33,6 @@ def bin_badrate(df, col_name, target):
     return redf
 
 
-
 def chi2(regroup):
     """
     计算并返回两个相邻组的卡方值
@@ -83,7 +82,6 @@ def chi2(regroup):
         chi2_good = ((sub_rg['num_feat_good'] - sub_rg['num_good_expected']) ** 2 / sub_rg['num_good_expected']).sum()
     # 返回总体的卡方值chi2_bad + chi2_good
     return chi2_bad + chi2_good
-
 
 
 def chi2sum_id(regroup, field='all'):
@@ -245,7 +243,6 @@ def refresh_vals_dict(dict_vals_ori, dict_vals_proc):
     return dict_res
 
 
-
 def merge_neighbour(regroup, id_target, feat_vals_dict):
     """
     合并分箱
@@ -261,7 +258,6 @@ def merge_neighbour(regroup, id_target, feat_vals_dict):
     -------
     返回刷新组序列之后的取值dict
     """
-
 
     # 先初始化索引值,方便取值,也方便后续更新refresh_val_2bin以确保一一对应, 这里可以理解为GroupNO
     rg = regroup.reset_index()
@@ -646,7 +642,7 @@ def merge_intervals(dict_vals_to_bins):
     # 合并特殊值
     res_dict_vals_to_bins.update(sp_dict_vals_to_bins)
     # 做个排序
-    res_dict_vals_to_bins = {k: v for k,v in sorted(res_dict_vals_to_bins.items(), key=lambda x: x[1])}
+    res_dict_vals_to_bins = {k: v for k, v in sorted(res_dict_vals_to_bins.items(), key=lambda x: x[1])}
     return res_dict_vals_to_bins
 
 
@@ -672,7 +668,6 @@ def value_to_intervals(value, dict_valstoinv):
     数值对应的区间
 
     """
-
 
     for key in list(dict_valstoinv.keys()):
         if isinstance(key, str):
@@ -701,7 +696,6 @@ def value_to_intervals(value, dict_valstoinv):
     # 如果整体都没有遍历到, 则可能是字典或者数值有问题, 抛出异常
     str_exception = '没有对应的区间.请重新检查.'
     raise Exception(str_exception)
-
 
 
 def chi2_cutting_discrete(df_data, feat_list, target,
@@ -939,7 +933,6 @@ def chi2_cutting_discrete(df_data, feat_list, target,
             regroup_woe_iv = regroup_special_merge(regroup_woe_iv, regroup_special=regroup_special)
             # 注意, 如果最后的regroup存在分组占比数小于min_pnt的, 需要提示, 但不做处理
 
-
         # 计算分组的woe和iv
         # 注意这里用的参数是regroup_woe_iv
         # 这个时候只有num_feat_vals、num_feat_bad、bad_rate三个字段
@@ -955,10 +948,13 @@ def chi2_cutting_discrete(df_data, feat_list, target,
     return dict_discrete_feat_to_bins, dict_discrete_iv, dict_discrete_woe
 
 
-def chi2_cutting_continuous(df_data, feat_list, target,
+def chi2_cutting_continuous(df_data,
+                            feat_list,
+                            target,
                             discrete_more_feats=[],
                             special_feat_val={},
-                            max_intervals=5, min_pnt=0.05,
+                            max_intervals=5,
+                            min_pnt=0.05,
                             mono_expect={}):
     """
     连续性特征分箱
@@ -1095,8 +1091,8 @@ def chi2_cutting_continuous(df_data, feat_list, target,
 
             # 基于卡方进行合并, 更新取值字典
             dict_vals_to_bins = merge_neighbour(regroup_badrate,
-                                              id_target=id_merge_badrate,
-                                              feat_vals_dict=dict_vals_to_bins)
+                                                id_target=id_merge_badrate,
+                                                feat_vals_dict=dict_vals_to_bins)
             # 重新更新df和regroup_badrate
             df[feat + '_badrate'] = df[feat + '_bins'].map(dict_vals_to_bins)
             regroup_badrate = bin_badrate(df, col_name=feat + '_badrate', target=target)
@@ -1118,8 +1114,8 @@ def chi2_cutting_continuous(df_data, feat_list, target,
                                                           check_object='min_pnt')
             # 开始进行合并, 更新分组取值
             dict_vals_to_bins = merge_neighbour(regroup_min_pnt,
-                                              id_target=id_merge_pnt,
-                                              feat_vals_dict=dict_vals_to_bins)
+                                                id_target=id_merge_pnt,
+                                                feat_vals_dict=dict_vals_to_bins)
             # 对df进行更新
             df[feat + '_min_pnt'] = df[feat + '_bins'].map(dict_vals_to_bins)
             # 更新regroup_min_pnt
@@ -1143,8 +1139,8 @@ def chi2_cutting_continuous(df_data, feat_list, target,
                 regroup_mono, id_merge_mono = order_regroup(regroup_mono, feat_order=True)
                 # 更新feat_valToBins
                 dict_vals_to_bins = merge_neighbour(regroup_mono,
-                                                  id_target=id_merge_mono,
-                                                  feat_vals_dict=dict_vals_to_bins)
+                                                    id_target=id_merge_mono,
+                                                    feat_vals_dict=dict_vals_to_bins)
                 # 更新df, feat + '_mono'
                 df[feat + '_mono'] = df[feat + '_bins'].map(dict_vals_to_bins)
                 # 更新regroup_mono
@@ -1190,7 +1186,7 @@ def chi2_cutting_continuous(df_data, feat_list, target,
             # 重新刷新&排序dict_valsToBins
             dict_vals_to_bins = regroup_tf[feat + '_groupno'].to_dict()
             dict_vals_to_bins = {k: v for k, v in sorted(dict_vals_to_bins.items(),
-                                                       key=lambda x: x[1])}
+                                                         key=lambda x: x[1])}
             dict_contin_feat_to_bins[feat] = dict_vals_to_bins
         else:
             dict_vals_to_bins = merge_intervals(dict_vals_to_bins)
@@ -1201,7 +1197,6 @@ def chi2_cutting_continuous(df_data, feat_list, target,
         dict_contin_woe[feat] = dict_woe
 
     return dict_contin_feat_to_bins, dict_contin_iv, dict_contin_woe
-
 
 
 def model_roc_auc(y_true, y_proba, is_plot=False, dict_plot_params=None):
@@ -1825,7 +1820,7 @@ def plot_score_distribution(y, score, dict_plot_params=None):
     ax[1].legend(fontsize='large')
 
     # 第三个绘制badrate的频数分布
-    score_min, score_max = df['score'].min() // 100 * 100, df['score'].max() // 100 * 100
+    # score_min, score_max = df['score'].min() // 100 * 100, df['score'].max() // 100 * 100
 
     x_linsrange = np.linspace(df['score'].min(), df['score'].max(), 20)
 
