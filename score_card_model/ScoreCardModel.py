@@ -859,38 +859,39 @@ class ScoreCardModel(object):
                 is_pvalue_valid = results.pvalues[list(_feats_com)].max() < pval_thres
 
                 ################ vif部分
-                df_feats_com = add_constant(df.loc[:, _feats_com])
+                if is_pvalue_coef_pos and is_pvalue_valid:
+                    df_feats_com = add_constant(df.loc[:, _feats_com])
 
-                vif_feats_com = pd.Series(
-                    [variance_inflation_factor(df_feats_com.values, i) for i in range(df_feats_com.shape[1])],
-                    index=df_feats_com.columns)
+                    vif_feats_com = pd.Series(
+                        [variance_inflation_factor(df_feats_com.values, i) for i in range(df_feats_com.shape[1])],
+                        index=df_feats_com.columns)
 
-                ## 判断是否满足vif
-                is_vif_pos = vif_feats_com[list(_feats_com)].max() < vif_thres
+                    ## 判断是否满足vif
+                    is_vif_pos = vif_feats_com[list(_feats_com)].max() < vif_thres
 
-                ################ 预建模auc部分、ks部分
-                if is_pvalue_coef_pos and is_pvalue_valid and is_vif_pos:
-                    estimator = LogisticRegression(random_state=0,
-                                                   fit_intercept=True,
-                                                   n_jobs=-1)
+                    ################ 预建模auc部分、ks部分
+                    if is_vif_pos:
+                        estimator = LogisticRegression(random_state=0,
+                                                       fit_intercept=True,
+                                                       n_jobs=-1)
 
-                    estimator.fit(X=df.loc[:, _feats_com], y=df[self.target])
+                        estimator.fit(X=df.loc[:, _feats_com], y=df[self.target])
 
-                    y_true = df[self.target].tolist()
-                    y_pred = estimator.predict(df.loc[:, _feats_com])
-                    y_probas = [p[1] for p in estimator.predict_proba(df.loc[:, _feats_com])]
+                        y_true = df[self.target].tolist()
+                        y_pred = estimator.predict(df.loc[:, _feats_com])
+                        y_probas = [p[1] for p in estimator.predict_proba(df.loc[:, _feats_com])]
 
-                    auc = utils.model_roc_auc(y_true=y_true,
-                                              y_proba=y_probas)
+                        auc = utils.model_roc_auc(y_true=y_true,
+                                                  y_proba=y_probas)
 
-                    ks = utils.model_ks(y_true=y_true,
-                                        y_proba=y_probas,
-                                        y_pred=y_pred)
-                    print(auc, ks)
+                        ks = utils.model_ks(y_true=y_true,
+                                            y_proba=y_probas,
+                                            y_pred=y_pred)
+                        print(auc, ks)
 
-                    res.append({'feats': _feats_com,
-                                'auc': auc,
-                                'ks': ks})
+                        res.append({'feats': _feats_com,
+                                    'auc': auc,
+                                    'ks': ks})
 
         return res
 
