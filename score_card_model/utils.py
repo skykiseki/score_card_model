@@ -1272,7 +1272,7 @@ def model_roc_auc(y_true, y_proba, is_plot=False, dict_plot_params=None):
     return auc
 
 
-def model_ks(y_true, y_pred, y_proba, is_plot=True, dict_plot_params=None):
+def model_ks(y_true, y_pred, y_proba, is_plot=False, dict_plot_params=None):
     """
     计算模型的ks(Kolmogorov-Smirnov)
 

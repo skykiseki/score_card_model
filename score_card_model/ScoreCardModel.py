@@ -595,7 +595,7 @@ class ScoreCardModel(object):
 
         return cols_filter
 
-    def filter_df_woe_corr(self, df_woe, corr_thres=0.7, frac=0.3):
+    def filter_df_woe_corr(self, df_woe, corr_thres=0.7, frac=0.1):
         """
         基于两个特征的斯皮尔逊相关系数进行剔除
         若两个特征之间的相关系数大于阈值(默认为0.7), 则剔除IV较低的那个
@@ -708,63 +708,6 @@ class ScoreCardModel(object):
 
         cols_filter = [col for col in _feats if col not in feats_vif_lower]
 
-        # # 如果list_feats_h_vif有值, 即存在vif>10的情况, 则进入循环
-        # while len(list_feats_h_vif) > 0 and df.shape[1] > 2:
-        #     # 先重置list_feats_h_vif
-        #     list_feats_h_vif = []
-        #
-        #     # dict记录可以剔除的候选特征以及其IV
-        #     dict_feats_candi = {}
-        #
-        #     # 基于IV对特征进行排序
-        #     dict_feativ_order = {k: v for k, v in sorted(self.dict_iv.items(), key=lambda x: x[1]) if
-        #                          k in _feats}
-        #     # 开始遍历每个特征
-        #     for feat in dict_feativ_order.keys():
-        #         # 剔除这个特征
-        #         df0 = df.drop(feat, axis=1)
-        #
-        #         # 重新计算vif
-        #         # mat_df0 = df0.as_matrix()
-        #         mat_df0 = df0.values
-        #         list_vif = [variance_inflation_factor(mat_df0, i) for i in range(df0.shape[1])]
-        #
-        #         # 如果list_vif中不存在大于阈值vif的情况, 则表示剔除这个特征有效解决共线性
-        #         if max(list_vif) < vif_thres:
-        #             # 找出该特征的iv
-        #             iv_feat_candi = dict_feativ_order[feat]
-        #             # 插入候选字典
-        #             dict_feats_candi[feat] = iv_feat_candi
-        #
-        #     # 取得候选中最小iv的特征
-        #     # 如果遍历了全部特征仍没有办法排除共线性, 则剔除最小iv的特征
-        #     if len(dict_feats_candi.keys()) > 0:
-        #         feat_candi_miniv = min(dict_feats_candi, key=dict_feats_candi.get)
-        #     else:
-        #         feat_candi_miniv = min(dict_feativ_order, key=dict_feativ_order.get)
-        #
-        #     # 插入返回的set中
-        #     cols_filter.add(feat_candi_miniv)
-        #
-        #     # 剔除该特征
-        #     df = df.drop(feat_candi_miniv, axis=1)
-        #
-        #     # mat_vif = df.as_matrix()
-        #     mat_vif = df.values
-        #
-        #     # 重新计算
-        #     list_featnames = list(df.columns)
-        #     for i in range(len(list_featnames)):
-        #         # 获取特征名
-        #         featname = list_featnames[i]
-        #
-        #         # 获取特征对应的vif
-        #         feat_vif = variance_inflation_factor(mat_vif, i)
-        #
-        #         # 如果vif大于阈值, 则写入这个特征
-        #         if feat_vif >= vif_thres:
-        #             list_feats_h_vif.append(featname)
-
         return cols_filter
 
     def filter_df_woe_pvalue(self, df_woe, pval_thres=0.05, frac=0.1, n_select=None):
@@ -841,56 +784,115 @@ class ScoreCardModel(object):
 
         cols_filter = [col for col in _feats if col not in feats_pvalue_lower]
 
-        # #copy
-        # df = df_woe.copy()
-        #
-        # # 待删除特征set
-        # cols_filter = set()
-        #
-        # # 初始建模, 注意加入常数项
-        # x = df.drop(self.target, axis=1)
-        # x['intercept'] = [1] * x.shape[0]
-        #
-        # y = df[self.target]
-        #
-        # model = sm.Logit(y, x)
-        # results = model.fit(disp=0)
-        #
-        # # 初始化对应的pvalue字典
-        # dict_feats_pvalue = results.pvalues.to_dict()
-        #
-        # # 注意要删除截距项
-        # del dict_feats_pvalue['intercept']
-        #
-        # # 如果存在不显著的系数
-        # while max(dict_feats_pvalue.values()) > pval_thres and len(dict_feats_pvalue) > 1:
-        #     # 取得最不显著的特征
-        #     feat_max_pval = max(dict_feats_pvalue, key=dict_feats_pvalue.get)
-        #
-        #     # 插入待删除列表
-        #     cols_filter.add(feat_max_pval)
-        #
-        #     # 剔除该特征
-        #     df0 = df.drop(feat_max_pval, axis=1)
-        #
-        #     # 重新建模
-        #     x = df0.drop(self.target, axis=1)
-        #     x['intercept'] = [1] * x.shape[0]
-        #
-        #     y = df0[self.target]
-        #     model = sm.Logit(y, x)
-        #     results = model.fit(disp=0)
-        #
-        #     # 重置赋值dict_feats_pvalue
-        #     dict_feats_pvalue = results.pvalues.to_dict()
-        #
-        #     # 删除截距项
-        #     del dict_feats_pvalue['intercept']
-        #
-        #     # 彻底删除这个特征
-        #     df = df.drop(feat_max_pval, axis=1)
-
         return cols_filter
+
+    def search_best_feats(self, df_woe,
+                          n_start=None,
+                          n_end=None,
+                          pval_thres=0.05,
+                          vif_thres=10,
+                          frac=0.1):
+        """
+
+        搜索最恰当的特征
+
+        其中满足p值, 且对psi, ks, AUC进行评估,
+
+
+        Parameters:
+        ----------
+        df_woe: dataframe, 输入的训练集(含target)
+
+        n_start: int, 开始排列组合的特征个数
+
+        n_end: int, 结束排列组合的特征个数
+
+        pval_thres: float, p_value阈值
+
+        vif_thres: float, vif系数阈值
+
+        frac: float, 小于1的比例, 用于抽样计算加速
+
+        Returns:
+        -------
+
+        res: list, 含有评估结果的可行性特征
+
+        """
+        res = []
+
+        # 原始特征名
+        _feats = df_woe.columns.drop(self.target).tolist()
+
+        # 处理开始搜索的特征个数起点
+        n_feats = len(_feats)
+
+        # 先进行抽样
+        df_pos = df_woe.loc[df_woe[self.target] == 1].sample(random_state=0, frac=frac)
+        df_neg = df_woe.loc[df_woe[self.target] == 0].sample(random_state=0, frac=frac)
+
+        df = pd.concat([df_pos, df_neg])
+
+        if n_start is None:
+            n_start = n_feats
+
+        if n_end is None:
+            n_end = 1
+
+        # 开始排列组合
+        for _n in range(n_start, n_end - 1, -1):
+            for _feats_com in tqdm(combinations(_feats, _n), desc="combinations, n={0}".format(_n)):
+                ################ p值部分
+                ## p值预建模, 注意加入常数项
+                x = df.loc[:, _feats_com]
+                x['intercept'] = [1] * x.shape[0]
+
+                y = df[self.target]
+
+                model = sm.Logit(y, x)
+                results = model.fit(disp=0)
+
+                ## 判断系数是否为正
+                is_pvalue_coef_pos = results.params[list(_feats_com)].min() > 0
+
+                ## 判断是否都显著
+                is_pvalue_valid = results.pvalues[list(_feats_com)].max() < pval_thres
+
+                ################ vif部分
+                df_feats_com = add_constant(df.loc[:, _feats_com])
+
+                vif_feats_com = pd.Series(
+                    [variance_inflation_factor(df_feats_com.values, i) for i in range(df_feats_com.shape[1])],
+                    index=df_feats_com.columns)
+
+                ## 判断是否满足vif
+                is_vif_pos = vif_feats_com[list(_feats_com)].max() < vif_thres
+
+                ################ 预建模auc部分、ks部分
+                if is_pvalue_coef_pos and is_pvalue_valid and is_vif_pos:
+                    estimator = LogisticRegression(random_state=0,
+                                                   fit_intercept=True,
+                                                   n_jobs=-1)
+
+                    estimator.fit(X=df.loc[:, _feats_com], y=df[self.target])
+
+                    y_true = df[self.target].tolist()
+                    y_pred = estimator.predict(df.loc[:, _feats_com])
+                    y_probas = [p[1] for p in estimator.predict_proba(df.loc[:, _feats_com])]
+
+                    auc = utils.model_roc_auc(y_true=y_true,
+                                              y_proba=y_probas)
+
+                    ks = utils.model_ks(y_true=y_true,
+                                        y_proba=y_probas,
+                                        y_pred=y_pred)
+                    print(auc, ks)
+
+                    res.append({'feats': _feats_com,
+                                'auc': auc,
+                                'ks': ks})
+
+        return res
 
     def set_md_features(self, md_feats, df_woe):
         """
