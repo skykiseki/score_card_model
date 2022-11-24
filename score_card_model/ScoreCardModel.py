@@ -887,7 +887,6 @@ class ScoreCardModel(object):
                         ks = utils.model_ks(y_true=y_true,
                                             y_proba=y_probas,
                                             y_pred=y_pred)
-                        print(auc, ks)
 
                         res.append({'feats': _feats_com,
                                     'auc': auc,
