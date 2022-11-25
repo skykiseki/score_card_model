@@ -424,7 +424,8 @@ class ScoreCardModel(object):
             # 开始转化特征, 离散型直接转化, 连续型则需要做个转化
             if col in self.cols_cont:
                 df_bins[col] = df_bins[col].apply(
-                    lambda x: utils.value_to_intervals(value=x, dict_valstoinv=dict_col_to_bins))
+                    lambda x: utils.value_to_intervals(value=x,
+                                                       dict_valstoinv=dict_col_to_bins))
 
             df_bins[col] = df_bins[col].map(dict_col_to_bins)
 
