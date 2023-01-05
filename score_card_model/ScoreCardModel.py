@@ -908,7 +908,9 @@ class ScoreCardModel(object):
             auc, ks = 0, 0
 
             while len(res_feats) < n_start:
+                res_models = []
                 for feat in tqdm(_feats, desc='round {0}, auc:{1:.2f}, ks:{2:.2f}'.format(len(res_feats), auc, ks)):
+
                     if feat in res_feats:
                         continue
 
@@ -946,9 +948,18 @@ class ScoreCardModel(object):
                             auc = utils.model_roc_auc(y_true=y_true, y_proba=y_proba)
                             ks = utils.model_ks(y_true=y_true, y_proba=y_proba, y_pred=y_pred)
 
-                            res.append({'feats': res_feats + [feat],
+                            res_feats.append(feat)
+
+                            res.append({'feats': res_feats,
                                         'auc': auc,
                                         'ks': ks})
+
+                            res_models.append({'feats': res_feats,
+                                               'auc': auc,
+                                               'ks': ks})
+
+                if len(res_models) == 0:
+                    break
 
         else:
             raise Exception('未知的method.')
