@@ -907,8 +907,9 @@ class ScoreCardModel(object):
             res_feats = []
             auc, ks = 0, 0
 
-            while len(res_feats) < n_start:
+            while len(res_feats) < n_start and len(res_feats) <= n_feats:
                 res_models = []
+
                 for feat in tqdm(_feats, desc='round {0}, auc:{1:.2f}, ks:{2:.2f}'.format(len(res_feats), auc, ks)):
 
                     if feat in res_feats:
@@ -948,18 +949,21 @@ class ScoreCardModel(object):
                             auc = utils.model_roc_auc(y_true=y_true, y_proba=y_proba)
                             ks = utils.model_ks(y_true=y_true, y_proba=y_proba, y_pred=y_pred)
 
-                            res_feats.append(feat)
-
-                            res.append({'feats': res_feats,
-                                        'auc': auc,
-                                        'ks': ks})
-
-                            res_models.append({'feats': res_feats,
+                            res_models.append({'feat': feat,
                                                'auc': auc,
-                                               'ks': ks})
+                                               'ks': ks,
+                                               'round': len(res_feats)})
 
                 if len(res_models) == 0:
                     break
+
+                feat_best_res = sorted(res_models, key=lambda x: x['auc'], reverse=True)[0]
+                auc, ks = feat_best_res['auc'], feat_best_res['ks']
+                res_feats.append(feat_best_res['feat'])
+
+            res.append({'feats': res_feats,
+                        'auc': auc,
+                        'ks': ks})
 
         else:
             raise Exception('未知的method.')
