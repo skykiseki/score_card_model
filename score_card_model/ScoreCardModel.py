@@ -412,7 +412,7 @@ class ScoreCardModel(object):
 
         df_bins = df.loc[:, cols]
 
-        for col in tqdm(df_bins.columns, desc="cutting bins"):
+        for col in df_bins.columns.tolist():
             # 遍历处理特征, 注意排除target
             if col == self.target:
                 continue
@@ -687,7 +687,7 @@ class ScoreCardModel(object):
 
             n_feats = _n
 
-            for _feats_com in tqdm(combinations(_feats, n_feats), desc="combinations, n={0}".format(n_feats)):
+            for _feats_com in combinations(_feats, n_feats):
                 df_feats_com = add_constant(df.loc[:, _feats_com])
 
                 vif_feats_com = pd.Series(
@@ -754,7 +754,7 @@ class ScoreCardModel(object):
 
         # 开始排列组合
         for _n in range(n_feats, 0, -1):
-            for _feats_com in tqdm(combinations(_feats, _n), desc="combinations, n={0}".format(_n)):
+            for _feats_com in combinations(_feats, _n):
                 # 预建模, 注意加入常数项
                 x = df.loc[:, _feats_com]
                 x['intercept'] = [1] * x.shape[0]
@@ -790,6 +790,8 @@ class ScoreCardModel(object):
     def search_best_feats(self, df_woe,
                           n_start=None,
                           n_end=None,
+                          method='all',
+                          # model='lr',
                           pval_thres=0.05,
                           vif_thres=10,
                           frac=0.1):
@@ -807,6 +809,8 @@ class ScoreCardModel(object):
         n_start: int, 开始排列组合的特征个数
 
         n_end: int, 结束排列组合的特征个数
+
+        method: string, 搜索特征的方法, all->直接排列组合, forward->向前逐步
 
         pval_thres: float, p_value阈值
 
@@ -828,6 +832,11 @@ class ScoreCardModel(object):
         # 处理开始搜索的特征个数起点
         n_feats = len(_feats)
 
+        # model
+        estimator = LogisticRegression(random_state=0,
+                                       fit_intercept=True,
+                                       n_jobs=-1)
+
         # 先进行抽样
         df_pos = df_woe.loc[df_woe[self.target] == 1].sample(random_state=0, frac=frac)
         df_neg = df_woe.loc[df_woe[self.target] == 0].sample(random_state=0, frac=frac)
@@ -840,58 +849,109 @@ class ScoreCardModel(object):
         if n_end is None:
             n_end = 1
 
-        # 开始排列组合
-        for _n in range(n_start, n_end - 1, -1):
-            for _feats_com in tqdm(combinations(_feats, _n), desc="combinations, n={0}".format(_n)):
-                ################ p值部分
-                ## p值预建模, 注意加入常数项
-                x = df.loc[:, _feats_com]
-                x['intercept'] = [1] * x.shape[0]
+        if method == 'all':
+            # 开始排列组合
+            for _n in range(n_start, n_end - 1, -1):
+                for _feats_com in tqdm(combinations(_feats, _n), desc="combinations, n={0}".format(_n)):
+                    ################ p值部分
+                    ## p值预建模, 注意加入常数项
+                    x = df.loc[:, _feats_com]
+                    x['intercept'] = [1] * x.shape[0]
 
-                y = df[self.target]
+                    y = df[self.target]
 
-                model = sm.Logit(y, x)
-                results = model.fit(disp=0)
+                    model = sm.Logit(y, x)
+                    try:
+                        results = model.fit(disp=0)
 
-                ## 判断系数是否为正
-                is_pvalue_coef_pos = results.params[list(_feats_com)].min() > 0
+                    except:
+                        continue
 
-                ## 判断是否都显著
-                is_pvalue_valid = results.pvalues[list(_feats_com)].max() < pval_thres
+                    ## 判断系数是否为正
+                    is_pvalue_coef_pos = results.params[list(_feats_com)].min() > 0
 
-                ################ vif部分
-                if is_pvalue_coef_pos and is_pvalue_valid:
-                    df_feats_com = add_constant(df.loc[:, _feats_com])
+                    ## 判断是否都显著
+                    is_pvalue_valid = results.pvalues[list(_feats_com)].max() < pval_thres
 
-                    vif_feats_com = pd.Series(
-                        [variance_inflation_factor(df_feats_com.values, i) for i in range(df_feats_com.shape[1])],
-                        index=df_feats_com.columns)
+                    ################ vif部分
+                    if is_pvalue_coef_pos and is_pvalue_valid:
+                        df_feats_com = add_constant(df.loc[:, _feats_com])
 
-                    ## 判断是否满足vif
-                    is_vif_pos = vif_feats_com[list(_feats_com)].max() < vif_thres
+                        vif_feats_com = pd.Series(
+                            [variance_inflation_factor(df_feats_com.values, i) for i in range(df_feats_com.shape[1])],
+                            index=df_feats_com.columns)
 
-                    ################ 预建模auc部分、ks部分
-                    if is_vif_pos:
-                        estimator = LogisticRegression(random_state=0,
-                                                       fit_intercept=True,
-                                                       n_jobs=-1)
+                        ## 判断是否满足vif
+                        is_vif_pos = vif_feats_com[list(_feats_com)].max() < vif_thres
 
-                        estimator.fit(X=df.loc[:, _feats_com], y=df[self.target])
+                        ################ 预建模auc部分、ks部分
+                        if is_vif_pos:
+                            estimator.fit(X=df.loc[:, _feats_com], y=df[self.target])
 
-                        y_true = df[self.target].tolist()
-                        y_pred = estimator.predict(df.loc[:, _feats_com])
-                        y_probas = [p[1] for p in estimator.predict_proba(df.loc[:, _feats_com])]
+                            y_true = df[self.target].tolist()
+                            y_pred = estimator.predict(df.loc[:, _feats_com])
+                            y_proba = [p[1] for p in estimator.predict_proba(df.loc[:, _feats_com])]
 
-                        auc = utils.model_roc_auc(y_true=y_true,
-                                                  y_proba=y_probas)
+                            auc = utils.model_roc_auc(y_true=y_true,
+                                                      y_proba=y_proba)
 
-                        ks = utils.model_ks(y_true=y_true,
-                                            y_proba=y_probas,
-                                            y_pred=y_pred)
+                            ks = utils.model_ks(y_true=y_true,
+                                                y_proba=y_proba,
+                                                y_pred=y_pred)
 
-                        res.append({'feats': _feats_com,
-                                    'auc': auc,
-                                    'ks': ks})
+                            res.append({'feats': _feats_com,
+                                        'auc': auc,
+                                        'ks': ks})
+
+        elif method == 'forward':
+            res_feats = []
+            auc, ks = 0, 0
+
+            while len(res_feats) < n_start:
+                for feat in tqdm(_feats, desc='round {0}, auc:{1:.2f}, ks:{2:.2f}'.format(len(res_feats), auc, ks)):
+                    if feat in res_feats:
+                        continue
+
+                    X = df.loc[:, res_feats + [feat]]
+                    y_true = df[self.target]
+
+                    ############## p值部分
+                    x = X.copy()
+                    x['intercept'] = [1] * x.shape[0]
+                    sm_model = sm.Logit(y_true, x)
+
+                    try:
+                        results = sm_model.fit(disp=0)
+                    except:
+                        continue
+
+                    # 判断系数是否为正
+                    is_params_pos = results.params[res_feats + [feat]].min() > 0
+
+                    # 判断系数是否都显著
+                    is_pvalue_pos = results.pvalues[res_feats + [feat]].max() < pval_thres
+
+                    if is_params_pos and is_pvalue_pos:
+                        ########### vif部分
+                        df_feats_com = add_constant(df.loc[:, res_feats + [feat]])
+                        vif_feats_com = pd.Series([variance_inflation_factor(df_feats_com.values, i) for i in range(df_feats_com.shape[1])],
+                                                  index=df_feats_com.columns)
+
+                        if vif_feats_com[res_feats + [feat]].max() < vif_thres:
+                            estimator.fit(X=X, y=y_true)
+
+                            y_proba = estimator.predict_proba(X)[:, 1].tolist()
+                            y_pred = estimator.predict(X).tolist()
+
+                            auc = utils.model_roc_auc(y_true=y_true, y_proba=y_proba)
+                            ks = utils.model_ks(y_true=y_true, y_proba=y_proba, y_pred=y_pred)
+
+                            res.append({'feats': res_feats + [feat],
+                                        'auc': auc,
+                                        'ks': ks})
+
+        else:
+            raise Exception('未知的method.')
 
         return res
 
@@ -932,7 +992,9 @@ class ScoreCardModel(object):
 
         self.estimator_is_fit = True
 
-        # 这里要抓系数
+        # 这里要抓系数,注意重置
+        self._coefs = {}
+
         self._coefs['const'] = self.estimator.intercept_[0]
 
         for _idx, _feat in enumerate(self.md_feats):
@@ -1081,7 +1143,7 @@ class ScoreCardModel(object):
 
         return probas, scores
 
-    def plot_feats_iv(self, feats=[], iv_thres=0.02):
+    def plot_feats_iv(self, feats=None, iv_thres=0.02):
         """
         基于IV进行绘图, 仅绘制特定列的iv
 
@@ -1093,6 +1155,8 @@ class ScoreCardModel(object):
 
         """
         # 找出iv 大于（含）阈值的特征
+        if feats is None:
+            feats = []
         _feats_iv = {_feat: self.dict_iv[_feat] for _feat in feats}
 
         # 绘图
