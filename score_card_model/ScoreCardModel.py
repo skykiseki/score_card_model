@@ -122,7 +122,6 @@ class ScoreCardModel(object):
 
         self.md_feats = None
 
-        # 如果传入的模型对象是None, 则默认用sklearn的逻辑回归
         self.estimator = None
 
         self.estimator_is_fit = False
@@ -1001,7 +1000,7 @@ class ScoreCardModel(object):
         else:
             raise Exception('设置的入模特征个数必须大于0.')
 
-        #
+        # 这里是配置LR
         self.estimator = LogisticRegression(fit_intercept=True, **estimator_kwargs)
 
         # 这里开始训练
