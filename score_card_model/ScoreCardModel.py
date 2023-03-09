@@ -76,7 +76,7 @@ class ScoreCardModel(object):
 
     """
 
-    def __init__(self, target, **estimator_kwargs):
+    def __init__(self, target):
 
         self.cols = None
         self.target = target
@@ -123,10 +123,7 @@ class ScoreCardModel(object):
         self.md_feats = None
 
         # 如果传入的模型对象是None, 则默认用sklearn的逻辑回归
-        self.estimator = LogisticRegression(random_state=0,
-                                            fit_intercept=True,
-                                            n_jobs=-1,
-                                            **estimator_kwargs)
+        self.estimator = None
 
         self.estimator_is_fit = False
 
@@ -970,7 +967,7 @@ class ScoreCardModel(object):
 
         return res
 
-    def set_md_features(self, md_feats, df_woe):
+    def set_md_features(self, md_feats, df_woe, **estimator_kwargs):
         """
 
         设置入模特征, 同时会启动训练
@@ -980,6 +977,8 @@ class ScoreCardModel(object):
         md_feats: list, 入模特征列表
 
         df_woe: dataframe, 训练使用的df_woe
+
+        estimator_kwargs: lr的各个参数
 
         Returns:
         -------
@@ -1001,6 +1000,9 @@ class ScoreCardModel(object):
             print('设置入模特征{0}个.'.format(len(md_feats)))
         else:
             raise Exception('设置的入模特征个数必须大于0.')
+
+        #
+        self.estimator = LogisticRegression(fit_intercept=True, **estimator_kwargs)
 
         # 这里开始训练
         self.estimator.fit(X=df_woe.loc[:, self.md_feats], y=df_woe[self.target])
@@ -1133,7 +1135,6 @@ class ScoreCardModel(object):
         probas: list, 拟合的概率列表
 
         scores: list, 拟合的分数列表
-
 
         """
         # 先检查是否有设置入模特征

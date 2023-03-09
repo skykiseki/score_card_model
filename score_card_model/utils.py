@@ -424,10 +424,13 @@ def check_if_min_pnt(regroup, row_num, min_pnt=0.05):
     Parameters:
     ----------
     regroup: badrate group
+
     row_num: df.shape[0]
+
     min_pnt: 单个屬性最小占比
 
     Returns:
+    -------
     bool
     """
 
@@ -435,6 +438,7 @@ def check_if_min_pnt(regroup, row_num, min_pnt=0.05):
     # 如果不存在pnt_feat_vals, 则重新创建一个
     if 'pnt_feat_vals' not in rg.columns:
         rg['pnt_feat_vals'] = rg['num_feat_vals'] / row_num
+
     if rg.loc[rg['pnt_feat_vals'] < min_pnt].shape[0] > 0:
         return True
     else:
@@ -459,22 +463,29 @@ def cal_woe_iv(regroup_woe_iv):
 
     # 计算总坏样本数
     num_total_bad = regroup_woe_iv['num_feat_bad'].sum()
+
     # 计算sub_bad_rate, 该组坏样本数/总坏样本数
     regroup_woe_iv['sub_bad_rate'] = regroup_woe_iv['num_feat_bad'] / num_total_bad
 
     # 计算num_feat_good, 好样本数
     regroup_woe_iv['num_feat_good'] = regroup_woe_iv['num_feat_vals'] - regroup_woe_iv['num_feat_bad']
+
     # 计算总好样本数
     num_total_good = regroup_woe_iv['num_feat_good'].sum()
+
     # 计算sub_good_rate, 该组好样本数/总好样本数
     regroup_woe_iv['sub_good_rate'] = regroup_woe_iv['num_feat_good'] / num_total_good
+
     # 计算woe值, woe = ln(bad_rate/good_rate)
     regroup_woe_iv['woe'] = np.log(regroup_woe_iv['sub_bad_rate'] / regroup_woe_iv['sub_good_rate'])
+
     # 计算iv, iv = (good_rate - bad_rate) * woe
     regroup_woe_iv['iv'] = (regroup_woe_iv['sub_bad_rate'] - regroup_woe_iv['sub_good_rate']) * regroup_woe_iv['woe']
+
     # 返回regourp_woe_iv, dict_woe, 特征的IV值
     dict_woe = regroup_woe_iv['woe'].to_dict()
     iv = regroup_woe_iv['iv'].sum()
+
     return regroup_woe_iv, dict_woe, iv
 
 
@@ -661,6 +672,7 @@ def value_to_intervals(value, dict_valstoinv):
     Parameters:
     ----------
     value: number, 数值
+
     dict_valstoinv: dict, 区间字典
 
     Returns:
@@ -708,16 +720,23 @@ def chi2_cutting_discrete(df_data, feat_list, target,
 
     Parameters:
     ----------
-    df_data: 训练集,
-    feat_list: 参与分箱的特征,
+    df_data: 训练集
+
+    feat_list: 参与分箱的特征
+
     target: y值特征名称
+
     special_feat_val: dict, 某个特征下不参与分箱的特殊值,具体格式如下:
     {特征名1: [特殊值1...特殊值r], 特征名2: [特殊值1...特殊值o, ......], 特征名k: [特殊值1...特殊值n]}
+
     max_intervals: 非0整数,最大分箱数, 默认8
+
     min_pnt: 最小分箱数目占比, 默认0.05, 取(0,1)之间
+
     discrete_order: dict, 表示离散有序特征, 具体格式如下:
     如{特征名1:{特征值1:序值1,...,特征值n:序值n} ,..., 特征名k:{特征值1:序值1,...,特征值n:序值n}};
     注意这个地方, 有序特征的有序性在这个特征中体现,函数中会根据这个更新分组序值
+
     mono_except: dict, 默认空表变量离散无序，无需检查单调性；非空dict表离散有序，需要检查badrate单调性,参数赋值
     形如{ 特征名1:{'shape':期望单调性,'u':不单调时，是否允许U形} ,..., 特征名k:{'shape':期望单调性,'u':不单调时，是否允许U形}}，
      'shape'可选择参数：'mono'期望单调增或减，'mono_up'期望单调增，'mono_down'期望单调减；
@@ -726,7 +745,9 @@ def chi2_cutting_discrete(df_data, feat_list, target,
     Returns:
     -------
     dict_discrete_feat_to_bins:  特征的分组取值, 形式为{featname:{val1: 序值1, val2: 序值2} }
+
     dict_discrete_iv: woe编码后的IV; 形式为:{featname: iv值}
+
     dict_discrete_woe: 分组后的woe值; {featname: {0: woe值, 1: woe值, ......, k: woe值} }
 
     """
@@ -964,18 +985,24 @@ def chi2_cutting_continuous(df_data,
     Parameters:
     ----------
     df_train: dataframe, 训练集,
+
     feat_list: list, 参与分箱的特征, 其中feat_list需要包含discrete_more_feats
+
     target: str, y值特征名称
+
     discrete_more_feats: 大于阈值分箱数的特征名称列表[特证名1, 特征名2......]
+
     special_feat_val: dict, 某个特征下不参与分箱的特殊值,具体格式如下:
     {特征名1: [特殊值1...特殊值r], 特征名2: [特殊值1...特殊值o, ......], 特征名k: [特殊值1...特殊值n]}
     PS:实际运用场景中, 这里只会有-1一个特殊值
 
     max_intervals: 非0整数,最大分箱数, 默认5
     min_pnt: 最小分箱数目占比, 默认0.05, 取(0,1)之间
+
     discrete_order: dict, 表示离散有序特征, 具体格式如下:
     如{特征名1:{特征值1:序值1,...,特征值n:序值n} ,..., 特征名k:{特征值1:序值1,...,特征值n:序值n}};
     注意这个地方, 有序特征的有序性在这个特征中体现,函数中会根据这个更新分组序值
+
     mono_except: dict, 默认空表变量离散无序，无需检查单调性；非空dict表离散有序，需要检查badrate单调性,参数赋值
     形如{ 特征名1:{'shape':期望单调性,'u':不单调时，是否允许U形} ,..., 特征名k:{'shape':期望单调性,'u':不单调时，是否允许U形}}，
         'shape'可选择参数：'mono'期望单调增或减，'mono_up'期望单调增，'mono_down'期望单调减；
@@ -995,13 +1022,17 @@ def chi2_cutting_continuous(df_data,
     # 判断df_train是否为空, 是否为正确的类型, 是否为0行
     if df_data is None:
         raise Exception('None dataframe is inputed.')
+
     elif not isinstance(df_data, pd.DataFrame):
         raise Exception('Input is not a dataframe.')
+
     elif df_data.shape[0] == 0:
         raise Exception('The dataframe has a row num of 0.')
+
     # 判断最大分箱数max_intervals是否为正整数
     elif (max_intervals < 0) or not isinstance(max_intervals, int):
         raise Exception('Max_intervals is incorrect.')
+
     # 判断最小分箱数占比min_pnt是否为(0,1)
     elif (min_pnt <= 0) or (min_pnt >= 1):
         raise Exception('Min_pnt is incorrect.')
